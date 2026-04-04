@@ -1,7 +1,6 @@
 import random
 import time
 import re
-import base64
 import streamlit as st
 from collections import defaultdict
 
@@ -36,7 +35,7 @@ def get_start_chars(last_char):
     return list(chars)
 
 # ────────────────────────────────────────────────
-# 3. 커스텀 CSS
+# 3. 커스텀 CSS (레드-퍼플 그라데이션)
 # ────────────────────────────────────────────────
 st.set_page_config(page_title="QUANTUM WORD BATTLE", layout="centered")
 
@@ -81,8 +80,6 @@ st.markdown("""
 if "initialized" not in st.session_state:
     st.markdown('<div class="grad-title">QUANTUM WORD BATTLE</div>', unsafe_allow_html=True)
     st.write("### 🎮 난이도를 선택해주세요")
-    
-    # 세션에 임시 난이도 저장 (라디오 버튼 상태 유지용)
     diff = st.radio("난이도", ["Easy (20초)", "Normal (15초)", "Hard (10초)", "Hell (5초)"], horizontal=True)
     
     if st.button("게임 시작"):
@@ -93,43 +90,31 @@ if "initialized" not in st.session_state:
         base_times = {"Easy (20초)": 20, "Normal (15초)": 15, "Hard (10초)": 10, "Hell (5초)": 5}
         
         first = random.choice(list(words))
-        # 모든 필요한 변수를 여기서 한 번에 초기화
         st.session_state.update({
-            "words": words, 
-            "index": dict(index), 
-            "used": {first},
-            "last_word": first, 
-            "history": [("AI", first)],
-            "chain": 1, 
-            "turn_start": time.time(), 
-            "input_key": 0,
-            "game_over": False, 
-            "base_time": base_times[diff], # 여기서 확실히 생성
-            "initialized": True # 마지막에 플래그 세움
+            "words": words, "index": dict(index), "used": {first},
+            "last_word": first, "history": [("AI", first)],
+            "chain": 1, "turn_start": time.time(), "input_key": 0,
+            "game_over": False, "base_time": base_times[diff],
+            "initialized": True, "winner": None
         })
         st.rerun()
-    st.stop() # 초기화 전에는 아래 코드를 실행하지 않음
+    st.stop()
 
 # ────────────────────────────────────────────────
-# 5. 메인 게임 화면 (안전장치 추가)
+# 5. 메인 게임 화면
 # ────────────────────────────────────────────────
-# 혹시나 base_time이 누락되었을 경우를 대비해 get() 메소드 사용
-base_time = st.session_state.get("base_time", 15) 
+base_time = st.session_state.get("base_time", 15)
 current_max_time = max(2.0, base_time - (st.session_state.chain // 10))
-st.markdown('<div class="grad-title">QUANTUM WORD BATTLE</div>', unsafe_allow_html=True)
 
-# 상단 체인 표시
+st.markdown('<div class="grad-title">QUANTUM WORD BATTLE</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="chain-display">🔗 CURRENT CHAIN: {st.session_state.chain}</div>', unsafe_allow_html=True)
 
-# 체인 수에 따라 난이도 가중치 (체인 10개당 10%씩 시간 감소, 최소 2초)
-current_max_time = max(2.0, st.session_state.base_time - (st.session_state.chain // 10))
-
+# 타이머 및 게임오버 처리
 if not st.session_state.game_over:
     elapsed = time.time() - st.session_state.turn_start
     remaining = max(0.0, current_max_time - elapsed)
     ratio = remaining / current_max_time
     
-    # 시간별 색상
     if ratio > 0.75: t_color = "#28a745"
     elif ratio > 0.5: t_color = "#ffc107"
     elif ratio > 0.25: t_color = "#fd7e14"
@@ -142,12 +127,12 @@ if not st.session_state.game_over:
         st.session_state.game_over = True
         st.rerun()
 
-# 두음법칙 힌트
+# 규칙 힌트
 starts = get_start_chars(st.session_state.last_word[-1])
 hint_text = " 또는 ".join([f'<b>"{s}"</b>' for s in starts])
 st.markdown(f'<div class="rule-hint">💡 다음 단어 시작: {hint_text}</div>', unsafe_allow_html=True)
 
-# 채팅창
+# 채팅창 출력
 chat_html = f'<div class="chat-wrap" id="chat-container">'
 for speaker, text in st.session_state.history:
     if speaker == "AI":
@@ -158,7 +143,7 @@ chat_html += '</div>'
 st.markdown(chat_html, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# 6. 입력창 및 JS 제어
+# 6. 입력창 및 강화된 자동화 스크립트
 # ────────────────────────────────────────────────
 if not st.session_state.game_over:
     with st.form(key=f"frm_{st.session_state.input_key}", clear_on_submit=True):
@@ -166,105 +151,87 @@ if not st.session_state.game_over:
         user_input = cols[0].text_input("단어 입력", placeholder="입력 후 엔터", label_visibility="collapsed")
         submit = cols[1].form_submit_button("전송")
 
-    # JS: 자동 포커스 및 자동 스크롤
-# --- 이 부분을 기존의 st.components.v1.html 자리에 덮어씌우세요 ---
-    st.components.v1.html(f"""
+    # 🔥 [핵심] 자동 포커스 및 자동 스크롤 자바스크립트
+    st.components.v1.html("""
         <script>
-        (function() {{
-            const focusAndScroll = () => {{
-                const doc = window.parent.document;
-                
-                // 1. 자동 포커스: data-testid로 정확하게 타겟팅
+        (function() {
+            const doc = window.parent.document;
+            const runAutoActions = () => {
+                // 1. 포커스 자동 재배치
                 const input = doc.querySelector('input[data-testid="stTextInput"]');
-                if (input) {{
+                if (input && doc.activeElement !== input) {
                     input.focus();
-                }}
-
-                // 2. 자동 스크롤: 클래스명으로 채팅창 하단 이동
-                const chatContainer = doc.querySelector('.chat-wrap');
-                if (chatContainer) {{
-                    chatContainer.scrollTop = chatContainer.scrollHeight;
-                }}
-            }};
-
-            // 렌더링 타이밍을 맞추기 위해 즉시 실행 + 100ms 후 실행 (이중 보정)
-            focusAndScroll();
-            setTimeout(focusAndScroll, 100);
-            setTimeout(focusAndScroll, 300); // 아주 느린 환경 대비
-        }})();
+                }
+                // 2. 스크롤 자동 하단 이동
+                const chat = doc.querySelector('.chat-wrap');
+                if (chat) {
+                    chat.scrollTop = chat.scrollHeight;
+                }
+            };
+            
+            // 여러번 실행하여 렌더링 시점을 잡음
+            runAutoActions();
+            setTimeout(runAutoActions, 100);
+            setTimeout(runAutoActions, 300);
+            setTimeout(runAutoActions, 600);
+        })();
         </script>
     """, height=0)
 
-# ... (기존 코드 생략) ...
-
-# ... (상단 코드 생략) ...
-
-if word in st.session_state.words and word not in st.session_state.used and word[0] in possible_starts:
-            
-            # 1. 유저 단어 등록 및 체인 증가
+    if submit and user_input:
+        word = user_input.strip()
+        possible_starts = get_start_chars(st.session_state.last_word[-1])
+        
+        if word in st.session_state.words and word not in st.session_state.used and word[0] in possible_starts:
+            # 유저 등록
             st.session_state.used.add(word)
             st.session_state.history.append(("User", word))
             st.session_state.chain += 1
             st.session_state.last_word = word
             
-            # 2. 🔥 가속 로직: 체인이 길어질수록 대기 시간을 '뺍니다'
-            # 시작 대기 시간은 2.5초, 체인 1당 0.1초씩 사정없이 차감
-            # 아무리 빨라도 0.2초는 고민하는 척 (최소값 설정)
+            # AI 가속 및 딜레이 (체인이 높을수록 '뺌')
             current_wait = max(0.2, 2.5 - (st.session_state.chain * 0.1))
-            
-            # 약간의 랜덤성을 줘서 기계 느낌을 없앱니다 (계산된 시간의 80%~100% 사이)
             wait_time = random.uniform(current_wait * 0.8, current_wait)
-
-            # 3. AI 생각 중 애니메이션 (체인이 높을수록 메시지 변경)
-            status_msg = "AI가 당황하며 생각 중..." if st.session_state.chain > 10 else "AI가 고민 중..."
-            with st.spinner(f"🔗 {st.session_state.chain}체인! {status_msg}"):
+            
+            with st.spinner(f"🔗 {st.session_state.chain}체인! AI가 고민 중..."):
                 time.sleep(wait_time) 
             
-            # 4. AI 답변 후보 탐색
+            # AI 답변 탐색
             candidates = []
             for ch in get_start_chars(word[-1]):
                 if ch in st.session_state.index:
                     valid_words = [w for w in st.session_state.index[ch] if w not in st.session_state.used]
                     candidates.extend(valid_words)
             
-            # 5. 결과 처리 (승리 vs 다음 턴)
             if not candidates:
-                # 🔥 AI가 대답할 단어를 찾지 못했을 때 (유저 승리!)
                 st.session_state.game_over = True
-                st.session_state.winner = "User" # 승자 기록
-                st.balloons() # 축하 풍선 효과
-                st.snow()     # 눈 내리는 효과 추가 (더 화려하게)
+                st.session_state.winner = "User"
+                st.balloons()
+                st.snow()
             else:
-                # AI가 단어를 찾았을 때
                 ai_word = random.choice(candidates)
                 st.session_state.used.add(ai_word)
                 st.session_state.history.append(("AI", ai_word))
                 st.session_state.last_word = ai_word
                 st.session_state.chain += 1
-                
                 st.session_state.turn_start = time.time()
                 st.session_state.input_key += 1
-            
             st.rerun()
+        else:
+            st.toast("❌ 규칙에 어긋나거나 이미 사용된 단어입니다!")
 
-
-# ... (하단 코드 생략) ...
-
-# ... (기존 코드 생략) ...
-# --- 게임 종료 화면 출력 부분 ---
 else:
-    # 승리했을 때 (winner가 User인 경우)
+    # 종료 화면
     if st.session_state.get("winner") == "User":
-        st.success(f"🎉 축하합니다! AI를 꺾고 승리하셨습니다! (최종 {st.session_state.chain}체인)")
-        st.markdown("""
-            <h2 style='text-align: center; color: #FFD700; text-shadow: 2px 2px #000;'>
-                🏆 YOU WIN! 🏆
-            </h2>
-        """, unsafe_allow_html=True)
-    # 패배했을 때 (시간 초과 등)
+        st.success("🎉 AI를 꺾고 승리하셨습니다!")
+        st.markdown(f'<h1 style="text-align:center; color:#FFD700;">🏆 VICTORY (Chain: {st.session_state.chain})</h1>', unsafe_allow_html=True)
     else:
-        st.error(f"💀 GAME OVER! AI의 승리입니다. (최종 {st.session_state.chain}체인)")
+        st.error(f"💀 GAME OVER! (최종 기록: {st.session_state.chain} 체인)")
     
-    if st.button("다시 시작", use_container_width=True):
+    if st.button("🔄 다시 시작", use_container_width=True):
         for k in list(st.session_state.keys()): del st.session_state[k]
         st.rerun()
+
+if not st.session_state.game_over:
+    time.sleep(0.1)
+    st.rerun()
