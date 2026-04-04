@@ -197,7 +197,7 @@ if not st.session_state.game_over:
             st.session_state.last_word = word
             
             # 2. 🔥 AI의 '생각하는 시간' 시뮬레이션 (랜덤 딜레이)
-            wait_time = random.uniform(1.0, 2.5) # 1초 ~ 2.5초 사이 랜덤 대기
+            wait_time = random.uniform(1.0, 1.7) # 1초 ~ 2.5초 사이 랜덤 대기
             
             with st.spinner("AI가 단어를 생각하고 있습니다..."):
                 time.sleep(wait_time) 
