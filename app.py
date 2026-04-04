@@ -38,7 +38,7 @@ def get_start_chars(last_char):
 # ────────────────────────────────────────────────
 # 3. UI
 # ────────────────────────────────────────────────
-st.set_page_config(page_title="QUANTUM WORD BATTLE PvP", layout="centered")
+st.set_page_config(page_title="QUANTUM WORD BATTLE", layout="centered")
 
 st.markdown("""
 <style>
@@ -66,7 +66,7 @@ st.markdown("""
 # 4. 초기화
 # ────────────────────────────────────────────────
 if "initialized" not in st.session_state:
-    st.markdown('<div class="grad-title">QUANTUM WORD BATTLE PvP</div>', unsafe_allow_html=True)
+    st.markdown('<div class="grad-title">QUANTUM WORD BATTLE</div>', unsafe_allow_html=True)
     
     if st.button("게임 시작"):
         words, _ = load_word_data()
@@ -82,12 +82,10 @@ if "initialized" not in st.session_state:
             "index": dict(index),
             "used": {first},
             "last_word": first,
-            "history": [("SYSTEM", f"시작 단어: {first}")],
+            "history": [("AI", first)],
             "chain": 1,
             "turn_start": time.time(),
             "game_over": False,
-            "turn": "P1",
-            "players": {"P1": "👤 Player 1", "P2": "👤 Player 2"},
             "initialized": True
         })
         st.rerun()
@@ -96,10 +94,8 @@ if "initialized" not in st.session_state:
 # ────────────────────────────────────────────────
 # 5. 게임 UI
 # ────────────────────────────────────────────────
-st.markdown('<div class="grad-title">QUANTUM WORD BATTLE PvP</div>', unsafe_allow_html=True)
+st.markdown('<div class="grad-title">QUANTUM WORD BATTLE</div>', unsafe_allow_html=True)
 
-current_player = st.session_state.turn
-st.write(f"### 🎮 현재 턴: {st.session_state.players[current_player]}")
 st.write(f"🔗 체인: {st.session_state.chain}")
 
 starts = get_start_chars(st.session_state.last_word[-1])
@@ -108,17 +104,15 @@ st.write(f"👉 시작 글자: {', '.join(starts)}")
 # 채팅 출력
 chat_html = '<div class="chat-wrap">'
 for speaker, text in st.session_state.history:
-    if speaker == "SYSTEM":
-        chat_html += f'<div class="msg-row-ai"><div class="bubble-ai">{text}</div></div>'
-    elif "Player 1" in speaker:
-        chat_html += f'<div class="msg-row-user"><div class="bubble-user">{text}</div></div>'
+    if speaker == "AI":
+        chat_html += f'<div class="msg-row-ai"><div class="bubble-ai">🤖 {text}</div></div>'
     else:
-        chat_html += f'<div class="msg-row-ai"><div class="bubble-ai">{text}</div></div>'
+        chat_html += f'<div class="msg-row-user"><div class="bubble-user">{text} 👤</div></div>'
 chat_html += '</div>'
 st.markdown(chat_html, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# 6. 입력
+# 6. 입력 + AI
 # ────────────────────────────────────────────────
 if not st.session_state.game_over:
     with st.form(key="fixed_form", clear_on_submit=True):
@@ -132,16 +126,26 @@ if not st.session_state.game_over:
         
         if word in st.session_state.words and word not in st.session_state.used and word[0] in possible_starts:
             st.session_state.used.add(word)
-            
-            player_name = st.session_state.players[st.session_state.turn]
-            st.session_state.history.append((player_name, word))
-            
+            st.session_state.history.append(("User", word))
             st.session_state.chain += 1
             st.session_state.last_word = word
             
-            # 턴 변경
-            st.session_state.turn = "P2" if st.session_state.turn == "P1" else "P1"
-            st.session_state.turn_start = time.time()
+            # AI 턴
+            candidates = []
+            for ch in get_start_chars(word[-1]):
+                if ch in st.session_state.index:
+                    valid = [w for w in st.session_state.index[ch] if w not in st.session_state.used]
+                    candidates.extend(valid)
+            
+            if not candidates:
+                st.session_state.game_over = True
+                st.success("🎉 승리!")
+            else:
+                ai_word = random.choice(candidates)
+                st.session_state.used.add(ai_word)
+                st.session_state.history.append(("AI", ai_word))
+                st.session_state.last_word = ai_word
+                st.session_state.chain += 1
             
             st.rerun()
         else:
