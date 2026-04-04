@@ -81,30 +81,41 @@ st.markdown("""
 if "initialized" not in st.session_state:
     st.markdown('<div class="grad-title">QUANTUM WORD BATTLE</div>', unsafe_allow_html=True)
     st.write("### 🎮 난이도를 선택해주세요")
-    diff = st.radio("난이도", ["Easy (20초)", "Normal (15초)", "Hard (10초)", "Hell (5초)"], horizontal=True, label_visibility="collapsed")
+    
+    # 세션에 임시 난이도 저장 (라디오 버튼 상태 유지용)
+    diff = st.radio("난이도", ["Easy (20초)", "Normal (15초)", "Hard (10초)", "Hell (5초)"], horizontal=True)
     
     if st.button("게임 시작"):
         words, source = load_word_data()
         index = defaultdict(list)
         for w in words: index[w[0]].append(w)
         
-        # 난이도별 기본 시간 설정
         base_times = {"Easy (20초)": 20, "Normal (15초)": 15, "Hard (10초)": 10, "Hell (5초)": 5}
         
         first = random.choice(list(words))
+        # 모든 필요한 변수를 여기서 한 번에 초기화
         st.session_state.update({
-            "words": words, "index": dict(index), "used": {first},
-            "last_word": first, "history": [("AI", first)],
-            "chain": 1, "turn_start": time.time(), "input_key": 0,
-            "game_over": False, "initialized": True,
-            "base_time": base_times[diff]
+            "words": words, 
+            "index": dict(index), 
+            "used": {first},
+            "last_word": first, 
+            "history": [("AI", first)],
+            "chain": 1, 
+            "turn_start": time.time(), 
+            "input_key": 0,
+            "game_over": False, 
+            "base_time": base_times[diff], # 여기서 확실히 생성
+            "initialized": True # 마지막에 플래그 세움
         })
         st.rerun()
-    st.stop()
+    st.stop() # 초기화 전에는 아래 코드를 실행하지 않음
 
 # ────────────────────────────────────────────────
-# 5. 메인 게임 화면
+# 5. 메인 게임 화면 (안전장치 추가)
 # ────────────────────────────────────────────────
+# 혹시나 base_time이 누락되었을 경우를 대비해 get() 메소드 사용
+base_time = st.session_state.get("base_time", 15) 
+current_max_time = max(2.0, base_time - (st.session_state.chain // 10))
 st.markdown('<div class="grad-title">QUANTUM WORD BATTLE</div>', unsafe_allow_html=True)
 
 # 상단 체인 표시
