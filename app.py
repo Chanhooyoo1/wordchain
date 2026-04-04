@@ -227,32 +227,44 @@ if word in st.session_state.words and word not in st.session_state.used and word
                     valid_words = [w for w in st.session_state.index[ch] if w not in st.session_state.used]
                     candidates.extend(valid_words)
             
-            # 5. 결과 처리
+            # 5. 결과 처리 (승리 vs 다음 턴)
             if not candidates:
+                # 🔥 AI가 대답할 단어를 찾지 못했을 때 (유저 승리!)
                 st.session_state.game_over = True
-                st.balloons()
+                st.session_state.winner = "User" # 승자 기록
+                st.balloons() # 축하 풍선 효과
+                st.snow()     # 눈 내리는 효과 추가 (더 화려하게)
             else:
+                # AI가 단어를 찾았을 때
                 ai_word = random.choice(candidates)
                 st.session_state.used.add(ai_word)
                 st.session_state.history.append(("AI", ai_word))
                 st.session_state.last_word = ai_word
                 st.session_state.chain += 1
                 
-                # AI 대답 직후 유저 타이머 시작 (공정하게!)
                 st.session_state.turn_start = time.time()
                 st.session_state.input_key += 1
             
             st.rerun()
 
+
 # ... (하단 코드 생략) ...
 
 # ... (기존 코드 생략) ...
+# --- 게임 종료 화면 출력 부분 ---
 else:
-    st.error(f"GAME OVER! 최종 체인: {st.session_state.chain}")
+    # 승리했을 때 (winner가 User인 경우)
+    if st.session_state.get("winner") == "User":
+        st.success(f"🎉 축하합니다! AI를 꺾고 승리하셨습니다! (최종 {st.session_state.chain}체인)")
+        st.markdown("""
+            <h2 style='text-align: center; color: #FFD700; text-shadow: 2px 2px #000;'>
+                🏆 YOU WIN! 🏆
+            </h2>
+        """, unsafe_allow_html=True)
+    # 패배했을 때 (시간 초과 등)
+    else:
+        st.error(f"💀 GAME OVER! AI의 승리입니다. (최종 {st.session_state.chain}체인)")
+    
     if st.button("다시 시작", use_container_width=True):
         for k in list(st.session_state.keys()): del st.session_state[k]
         st.rerun()
-
-if not st.session_state.game_over:
-    time.sleep(0.1)
-    st.rerun()
