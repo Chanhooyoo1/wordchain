@@ -179,20 +179,37 @@ if not st.session_state.game_over:
         </script>
         """, height=0)
 
+# ... (기존 코드 생략) ...
+
     if submit and user_input:
         word = user_input.strip()
         possible_starts = get_start_chars(st.session_state.last_word[-1])
         
+        # 유저가 입력한 단어가 규칙에 맞는지 확인하는 조건문입니다.
         if word in st.session_state.words and word not in st.session_state.used and word[0] in possible_starts:
+            
+            # 👇 여기서부터 복사해서 넣으세요! (기존 AI 로직은 지우고 대체)
+            
+            # 1. 유저 단어 등록
             st.session_state.used.add(word)
             st.session_state.history.append(("User", word))
             st.session_state.chain += 1
+            st.session_state.last_word = word
             
-            # AI 턴
+            # 2. 🔥 AI의 '생각하는 시간' 시뮬레이션 (랜덤 딜레이)
+            wait_time = random.uniform(1.0, 2.5) # 1초 ~ 2.5초 사이 랜덤 대기
+            
+            with st.spinner("AI가 단어를 생각하고 있습니다..."):
+                time.sleep(wait_time) 
+            
+            # 3. AI 답변 찾기
             candidates = []
             for ch in get_start_chars(word[-1]):
-                candidates.extend([w for w in st.session_state.index.get(ch, []) if w not in st.session_state.used])
+                if ch in st.session_state.index:
+                    valid_words = [w for w in st.session_state.index[ch] if w not in st.session_state.used]
+                    candidates.extend(valid_words)
             
+            # 4. 결과 처리
             if not candidates:
                 st.session_state.game_over = True
                 st.balloons()
@@ -202,12 +219,19 @@ if not st.session_state.game_over:
                 st.session_state.history.append(("AI", ai_word))
                 st.session_state.last_word = ai_word
                 st.session_state.chain += 1
+                
+                # 5. 중요: AI가 대답한 시점부터 다시 유저 타이머 시작
                 st.session_state.turn_start = time.time()
                 st.session_state.input_key += 1
-            st.rerun()
+            
+            st.rerun() # 화면 갱신해서 봇의 대답 보여주기
+            
+            # 👆 여기까지 넣으시면 됩니다!
+
         else:
             st.toast("❌ 규칙에 어긋납니다!")
 
+# ... (기존 코드 생략) ...
 else:
     st.error(f"GAME OVER! 최종 체인: {st.session_state.chain}")
     if st.button("다시 시작", use_container_width=True):
