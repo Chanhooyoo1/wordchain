@@ -105,8 +105,8 @@ if "initialized" not in st.session_state:
 base_time = st.session_state.get("base_time", 15)
 current_max_time = max(2.0, base_time - (st.session_state.chain // 10))
 
-st.markdown('<div class="grad-title">QUANTUM WORD BATTLE</div>', unsafe_allow_html=True)
-st.markdown(f'<div class="chain-display">🔗 CURRENT CHAIN: {st.session_state.chain}</div>', unsafe_allow_html=True)
+st.markdown('<div class="grad-title">끝말잇기</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="chain-display">이은 단어 수: {st.session_state.chain}</div>', unsafe_allow_html=True)
 
 if not st.session_state.game_over:
     elapsed = time.time() - st.session_state.turn_start
@@ -132,7 +132,7 @@ st.markdown(f'<div class="rule-hint">{hint_text}</div>', unsafe_allow_html=True)
 # 채팅 출력
 chat_html = f'<div class="chat-wrap" id="chat-container">'
 for speaker, text in st.session_state.history:
-    if speaker == "AI": chat_html += f'<div class="msg-row-ai"><div class="bubble-ai">🤖 {text}</div></div>'
+    if speaker == "AI": chat_html += f'<div class="msg-row-ai"><div class="bubble-ai"> {text}</div></div>'
     else: chat_html += f'<div class="msg-row-user"><div class="bubble-user">{text} 👤</div></div>'
 chat_html += '</div>'
 st.markdown(chat_html, unsafe_allow_html=True)
@@ -191,7 +191,7 @@ if not st.session_state.game_over:
             
             # 🔥 [랜덤 지연 시간] 체인이 높을수록 대기 시간을 '뺍니다'
             # 시작 대기 2.5초, 체인당 0.1초 차감, 최소 0.2초
-            calc_wait = max(0.2, 2.5 - (st.session_state.chain * 0.6))
+            calc_wait = max(0.8, 4 - (st.session_state.chain * 0.6))
             wait_time = random.uniform(calc_wait * 0.7, calc_wait) # 70%~100% 사이의 랜덤초
             
             with st.spinner(f"AI가 고민 중..."):
@@ -217,7 +217,7 @@ if not st.session_state.game_over:
                 st.session_state.turn_start = time.time()
             st.rerun()
         else:
-            st.toast("❌ 잘못되거나 없는 단어입니다.")
+            st.toast("❌ 잘못되거나 이미 사용한 단어입니다.")
 
 else:
     if st.session_state.get("winner") == "User":
