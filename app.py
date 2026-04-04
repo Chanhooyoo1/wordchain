@@ -199,35 +199,28 @@ if not st.session_state.game_over:
 
 # ... (상단 코드 생략) ...
 
-    if submit and user_input:
-        word = user_input.strip()
-        possible_starts = get_start_chars(st.session_state.last_word[-1])
-        
-        if word in st.session_state.words and word not in st.session_state.used and word[0] in possible_starts:
+if word in st.session_state.words and word not in st.session_state.used and word[0] in possible_starts:
             
-            # 여기서부터 ----------------------------------------- (교체 시작)
-            
-            # 1. 유저 데이터 등록
+            # 1. 유저 단어 등록 및 체인 증가
             st.session_state.used.add(word)
             st.session_state.history.append(("User", word))
             st.session_state.chain += 1
             st.session_state.last_word = word
             
-            # 2. ⚡️ 체인이 길어질수록 AI 대답 속도 가속화 로직
-            # 5체인마다 0.2초씩 빨라짐 (최소 0.4초 대기)
-            base_wait = 2.0  
-            reduction = (st.session_state.chain // 5) * 0.2
-            min_wait = 0.4   
+            # 2. 🔥 가속 로직: 체인이 길어질수록 대기 시간을 '뺍니다'
+            # 시작 대기 시간은 2.5초, 체인 1당 0.1초씩 사정없이 차감
+            # 아무리 빨라도 0.2초는 고민하는 척 (최소값 설정)
+            current_wait = max(0.2, 2.5 - (st.session_state.chain * 0.1))
+            
+            # 약간의 랜덤성을 줘서 기계 느낌을 없앱니다 (계산된 시간의 80%~100% 사이)
+            wait_time = random.uniform(current_wait * 0.8, current_wait)
 
-            wait_start = max(min_wait, 0.8 - reduction)
-            wait_end = max(min_wait + 0.3, base_wait - reduction)
-            wait_time = random.uniform(wait_start, wait_end)
-
-            # 3. AI 생각 중 애니메이션
-            with st.spinner(f"AI가 {st.session_state.chain}체인 공격에 당황하며 생각 중..."):
+            # 3. AI 생각 중 애니메이션 (체인이 높을수록 메시지 변경)
+            status_msg = "AI가 당황하며 생각 중..." if st.session_state.chain > 10 else "AI가 고민 중..."
+            with st.spinner(f"🔗 {st.session_state.chain}체인! {status_msg}"):
                 time.sleep(wait_time) 
             
-            # 4. AI 답변 후보 찾기
+            # 4. AI 답변 후보 탐색
             candidates = []
             for ch in get_start_chars(word[-1]):
                 if ch in st.session_state.index:
@@ -245,16 +238,11 @@ if not st.session_state.game_over:
                 st.session_state.last_word = ai_word
                 st.session_state.chain += 1
                 
-                # AI 대답 시점부터 유저 타이머 리셋
+                # AI 대답 직후 유저 타이머 시작 (공정하게!)
                 st.session_state.turn_start = time.time()
                 st.session_state.input_key += 1
             
-            st.rerun() 
-            
-            # 여기까지 ------------------------------------------- (교체 끝)
-
-        else:
-            st.toast("❌ 규칙에 어긋납니다!")
+            st.rerun()
 
 # ... (하단 코드 생략) ...
 
