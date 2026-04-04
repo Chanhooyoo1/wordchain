@@ -80,7 +80,7 @@ if "initialized" not in st.session_state:
     st.markdown('<div class="grad-title">QUANTUM WORD BATTLE</div>', unsafe_allow_html=True)
     st.write("### 시간을 선택해주세요.")
     diff = st.radio("시간", ["쉬움 (20초)", "보통 (15초)", "어려움 (10초)", "지옥 (5초)"], horizontal=True)
-    print ("PC환경에서 실행을 권장합니다."
+    print ("PC환경에서 실행을 권장합니다.")
     
     if st.button("끝말잇기 시작!"):
         words, _ = load_word_data()
