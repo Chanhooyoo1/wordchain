@@ -181,35 +181,44 @@ if not st.session_state.game_over:
 
 # ... (기존 코드 생략) ...
 
+# ... (상단 코드 생략) ...
+
     if submit and user_input:
         word = user_input.strip()
         possible_starts = get_start_chars(st.session_state.last_word[-1])
         
-        # 유저가 입력한 단어가 규칙에 맞는지 확인하는 조건문입니다.
         if word in st.session_state.words and word not in st.session_state.used and word[0] in possible_starts:
             
-            # 👇 여기서부터 복사해서 넣으세요! (기존 AI 로직은 지우고 대체)
+            # 여기서부터 ----------------------------------------- (교체 시작)
             
-            # 1. 유저 단어 등록
+            # 1. 유저 데이터 등록
             st.session_state.used.add(word)
             st.session_state.history.append(("User", word))
             st.session_state.chain += 1
             st.session_state.last_word = word
             
-            # 2. 🔥 AI의 '생각하는 시간' 시뮬레이션 (랜덤 딜레이)
-            wait_time = random.uniform(1.0, 1.7) # 1초 ~ 2.5초 사이 랜덤 대기
-            
-            with st.spinner("AI가 단어를 생각하고 있습니다..."):
+            # 2. ⚡️ 체인이 길어질수록 AI 대답 속도 가속화 로직
+            # 5체인마다 0.2초씩 빨라짐 (최소 0.4초 대기)
+            base_wait = 2.0  
+            reduction = (st.session_state.chain // 5) * 0.2
+            min_wait = 0.4   
+
+            wait_start = max(min_wait, 0.8 - reduction)
+            wait_end = max(min_wait + 0.3, base_wait - reduction)
+            wait_time = random.uniform(wait_start, wait_end)
+
+            # 3. AI 생각 중 애니메이션
+            with st.spinner(f"AI가 {st.session_state.chain}체인 공격에 당황하며 생각 중..."):
                 time.sleep(wait_time) 
             
-            # 3. AI 답변 찾기
+            # 4. AI 답변 후보 찾기
             candidates = []
             for ch in get_start_chars(word[-1]):
                 if ch in st.session_state.index:
                     valid_words = [w for w in st.session_state.index[ch] if w not in st.session_state.used]
                     candidates.extend(valid_words)
             
-            # 4. 결과 처리
+            # 5. 결과 처리
             if not candidates:
                 st.session_state.game_over = True
                 st.balloons()
@@ -220,16 +229,18 @@ if not st.session_state.game_over:
                 st.session_state.last_word = ai_word
                 st.session_state.chain += 1
                 
-                # 5. 중요: AI가 대답한 시점부터 다시 유저 타이머 시작
+                # AI 대답 시점부터 유저 타이머 리셋
                 st.session_state.turn_start = time.time()
                 st.session_state.input_key += 1
             
-            st.rerun() # 화면 갱신해서 봇의 대답 보여주기
+            st.rerun() 
             
-            # 👆 여기까지 넣으시면 됩니다!
+            # 여기까지 ------------------------------------------- (교체 끝)
 
         else:
             st.toast("❌ 규칙에 어긋납니다!")
+
+# ... (하단 코드 생략) ...
 
 # ... (기존 코드 생략) ...
 else:
