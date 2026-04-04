@@ -191,7 +191,7 @@ if not st.session_state.game_over:
             
             # 🔥 [랜덤 지연 시간] 체인이 높을수록 대기 시간을 '뺍니다'
             # 시작 대기 2.5초, 체인당 0.1초 차감, 최소 0.2초
-            calc_wait = max(0.2, 2.5 - (st.session_state.chain * 1))
+            calc_wait = max(0.2, 2.5 - (st.session_state.chain * 0.6))
             wait_time = random.uniform(calc_wait * 0.7, calc_wait) # 70%~100% 사이의 랜덤초
             
             with st.spinner(f"AI가 고민 중..."):
