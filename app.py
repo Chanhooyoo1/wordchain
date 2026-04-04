@@ -167,17 +167,33 @@ if not st.session_state.game_over:
         submit = cols[1].form_submit_button("전송")
 
     # JS: 자동 포커스 및 자동 스크롤
-    st.components.v1.html("""
+# --- 이 부분을 기존의 st.components.v1.html 자리에 덮어씌우세요 ---
+    st.components.v1.html(f"""
         <script>
-        setTimeout(function() {
-            var input = window.parent.document.querySelector('input[data-testid="stTextInput"]');
-            if (input) { input.focus(); }
-            
-            var chat = window.parent.document.querySelector('.chat-wrap');
-            if (chat) { chat.scrollTop = chat.scrollHeight; }
-        }, 100);
+        (function() {{
+            const focusAndScroll = () => {{
+                const doc = window.parent.document;
+                
+                // 1. 자동 포커스: data-testid로 정확하게 타겟팅
+                const input = doc.querySelector('input[data-testid="stTextInput"]');
+                if (input) {{
+                    input.focus();
+                }}
+
+                // 2. 자동 스크롤: 클래스명으로 채팅창 하단 이동
+                const chatContainer = doc.querySelector('.chat-wrap');
+                if (chatContainer) {{
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }}
+            }};
+
+            // 렌더링 타이밍을 맞추기 위해 즉시 실행 + 100ms 후 실행 (이중 보정)
+            focusAndScroll();
+            setTimeout(focusAndScroll, 100);
+            setTimeout(focusAndScroll, 300); // 아주 느린 환경 대비
+        }})();
         </script>
-        """, height=0)
+    """, height=0)
 
 # ... (기존 코드 생략) ...
 
