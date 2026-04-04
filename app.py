@@ -139,7 +139,7 @@ st.markdown(chat_html, unsafe_allow_html=True)
 # 6. 입력 및 자동화 (포커스/스크롤 고도화)
 # ────────────────────────────────────────────────
 if not st.session_state.game_over:
-    with st.form(key=f"frm_{st.session_state.input_key}", clear_on_submit=True):
+with st.form(key="fixed_form", clear_on_submit=True):
         cols = st.columns([4, 1])
         user_input = cols[0].text_input("단어 입력", placeholder="입력 후 엔터", label_visibility="collapsed")
         submit = cols[1].form_submit_button("전송")
@@ -200,7 +200,6 @@ if not st.session_state.game_over:
                 st.session_state.last_word = ai_word
                 st.session_state.chain += 1
                 st.session_state.turn_start = time.time()
-                st.session_state.input_key += 1
             st.rerun()
         else:
             st.toast("❌ 잘못된 단어입니다!")
