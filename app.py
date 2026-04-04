@@ -5,14 +5,14 @@ import streamlit as st
 from collections import defaultdict
 
 # ────────────────────────────────────────────────
-# 1. 데이터 로드 (words.js 우선)
+# 1. 데이터 로드
 # ────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def load_word_data():
     try:
         with open("words.js", "r", encoding="utf-8") as f:
             content = f.read()
-        extracted = re.findall(r'["\']([가-힣]{2,4})["\']', content)
+        extracted = re.findall(r'["\']([가-힣]{2,5})["\']', content)
         if extracted:
             return frozenset(extracted), "words.js"
     except FileNotFoundError:
@@ -20,7 +20,7 @@ def load_word_data():
     return frozenset(["가구", "가방", "가수", "기차", "나비", "나무"]), "기본 샘플"
 
 # ────────────────────────────────────────────────
-# 2. 로직 및 두음법칙 매핑
+# 2. 두음법칙
 # ────────────────────────────────────────────────
 DUEUM = {
     '녀': '여', '뇨': '요', '뉴': '유', '니': '이', '랴': '야', '려': '여', '례': '예', '료': '요',
@@ -31,207 +31,144 @@ DUEUM = {
 
 def get_start_chars(last_char):
     chars = {last_char}
-    if last_char in DUEUM: chars.add(DUEUM[last_char])
+    if last_char in DUEUM:
+        chars.add(DUEUM[last_char])
     return list(chars)
 
 # ────────────────────────────────────────────────
-# 3. 커스텀 CSS (레드-퍼플 그라데이션)
+# 3. UI
 # ────────────────────────────────────────────────
-st.set_page_config(page_title="QUANTUM WORD BATTLE", layout="centered")
+st.set_page_config(page_title="QUANTUM WORD BATTLE PvP", layout="centered")
 
 st.markdown("""
 <style>
-    .grad-title {
-        background: linear-gradient(90deg, #FF0000, #8A2BE2);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: 3rem; font-weight: 800; text-align: center; margin-bottom: 5px;
-    }
-    .chain-display {
-        text-align: center; font-size: 1.5rem; font-weight: 700; color: #8A2BE2; margin-bottom: 10px;
-    }
-    .chat-wrap { 
-        background: #f8f9fa; border-radius: 15px; padding: 20px; 
-        height: 350px; overflow-y: auto; border: 1px solid #e9ecef; 
-        margin-bottom: 10px; display: flex; flex-direction: column;
-    }
-    .msg-row-ai { display:flex; justify-content:flex-start; margin-bottom:12px; }
-    .msg-row-user { display:flex; justify-content:flex-end; margin-bottom:12px; }
-    .bubble-ai { background: #ffffff; color: #000000 !important; border: 1px solid #dee2e6; border-radius: 15px 15px 15px 2px; padding: 10px 15px; font-weight: 500; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-    .bubble-user { background: linear-gradient(135deg, #FF0055, #7000FF); color: white; border-radius: 15px 15px 2px 15px; padding: 10px 15px; font-weight: 500; }
-    
-    .timer-container { width: 100%; background-color: #eee; border-radius: 10px; margin: 10px 0; height: 14px; }
-    .timer-bar { height: 100%; border-radius: 10px; transition: width 0.1s linear, background-color 0.3s ease; }
-    .rule-hint { font-size: 0.9rem; color: #666; margin-bottom: 10px; text-align: center; background: #f0f2f6; padding: 5px; border-radius: 8px; }
-
-    div.stButton > button {
-        background: linear-gradient(135deg, #FF0000, #8A2BE2) !important;
-        color: white !important; border: none !important; font-weight: 600 !important;
-        border-radius: 8px !important; transition: all 0.3s ease !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1) !important; width: 100%;
-    }
-    div.stButton > button:hover { transform: scale(1.02) !important; filter: brightness(1.1); }
+.grad-title {
+    background: linear-gradient(90deg, #FF0000, #8A2BE2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 3rem; font-weight: 800; text-align: center;
+}
+.chat-wrap {
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 20px;
+    height: 350px;
+    overflow-y: auto;
+}
+.msg-row-ai { text-align:left; margin-bottom:10px; }
+.msg-row-user { text-align:right; margin-bottom:10px; }
+.bubble-ai { background:white; padding:10px; border-radius:10px; }
+.bubble-user { background:linear-gradient(135deg,#FF0055,#7000FF); color:white; padding:10px; border-radius:10px; }
 </style>
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# 4. 세션 초기화 및 난이도 설정
+# 4. 초기화
 # ────────────────────────────────────────────────
 if "initialized" not in st.session_state:
-    st.markdown('<div class="grad-title">QUANTUM WORD BATTLE</div>', unsafe_allow_html=True)
-    st.write("### 🎮 난이도를 선택해주세요")
-    diff = st.radio("난이도", ["Easy (20초)", "Normal (15초)", "Hard (10초)", "Hell (5초)"], horizontal=True)
+    st.markdown('<div class="grad-title">QUANTUM WORD BATTLE PvP</div>', unsafe_allow_html=True)
     
     if st.button("게임 시작"):
-        words, source = load_word_data()
-        index = defaultdict(list)
-        for w in words: index[w[0]].append(w)
+        words, _ = load_word_data()
         
-        base_times = {"Easy (20초)": 20, "Normal (15초)": 15, "Hard (10초)": 10, "Hell (5초)": 5}
+        index = defaultdict(list)
+        for w in words:
+            index[w[0]].append(w)
         
         first = random.choice(list(words))
+        
         st.session_state.update({
-            "words": words, "index": dict(index), "used": {first},
-            "last_word": first, "history": [("AI", first)],
-            "chain": 1, "turn_start": time.time(), "input_key": 0,
-            "game_over": False, "base_time": base_times[diff],
-            "initialized": True, "winner": None
+            "words": words,
+            "index": dict(index),
+            "used": {first},
+            "last_word": first,
+            "history": [("SYSTEM", f"시작 단어: {first}")],
+            "chain": 1,
+            "turn_start": time.time(),
+            "game_over": False,
+            "turn": "P1",
+            "players": {"P1": "👤 Player 1", "P2": "👤 Player 2"},
+            "initialized": True
         })
         st.rerun()
     st.stop()
 
 # ────────────────────────────────────────────────
-# 5. 메인 게임 화면
+# 5. 게임 UI
 # ────────────────────────────────────────────────
-base_time = st.session_state.get("base_time", 15)
-current_max_time = max(2.0, base_time - (st.session_state.chain // 10))
+st.markdown('<div class="grad-title">QUANTUM WORD BATTLE PvP</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="grad-title">QUANTUM WORD BATTLE</div>', unsafe_allow_html=True)
-st.markdown(f'<div class="chain-display">🔗 CURRENT CHAIN: {st.session_state.chain}</div>', unsafe_allow_html=True)
+current_player = st.session_state.turn
+st.write(f"### 🎮 현재 턴: {st.session_state.players[current_player]}")
+st.write(f"🔗 체인: {st.session_state.chain}")
 
-# 타이머 및 게임오버 처리
-if not st.session_state.game_over:
-    elapsed = time.time() - st.session_state.turn_start
-    remaining = max(0.0, current_max_time - elapsed)
-    ratio = remaining / current_max_time
-    
-    if ratio > 0.75: t_color = "#28a745"
-    elif ratio > 0.5: t_color = "#ffc107"
-    elif ratio > 0.25: t_color = "#fd7e14"
-    else: t_color = "#dc3545"
-
-    st.markdown(f"⏱ **남은 시간: {remaining:.1f}초**")
-    st.markdown(f'<div class="timer-container"><div class="timer-bar" style="width: {ratio*100}%; background-color: {t_color};"></div></div>', unsafe_allow_html=True)
-
-    if remaining <= 0:
-        st.session_state.game_over = True
-        st.rerun()
-
-# 규칙 힌트
 starts = get_start_chars(st.session_state.last_word[-1])
-hint_text = " 또는 ".join([f'<b>"{s}"</b>' for s in starts])
-st.markdown(f'<div class="rule-hint">💡 다음 단어 시작: {hint_text}</div>', unsafe_allow_html=True)
+st.write(f"👉 시작 글자: {', '.join(starts)}")
 
-# 채팅창 출력
-chat_html = f'<div class="chat-wrap" id="chat-container">'
+# 채팅 출력
+chat_html = '<div class="chat-wrap">'
 for speaker, text in st.session_state.history:
-    if speaker == "AI":
-        chat_html += f'<div class="msg-row-ai"><div class="bubble-ai">🤖 {text}</div></div>'
+    if speaker == "SYSTEM":
+        chat_html += f'<div class="msg-row-ai"><div class="bubble-ai">{text}</div></div>'
+    elif "Player 1" in speaker:
+        chat_html += f'<div class="msg-row-user"><div class="bubble-user">{text}</div></div>'
     else:
-        chat_html += f'<div class="msg-row-user"><div class="bubble-user">{text} 👤</div></div>'
+        chat_html += f'<div class="msg-row-ai"><div class="bubble-ai">{text}</div></div>'
 chat_html += '</div>'
 st.markdown(chat_html, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# 6. 입력창 및 강화된 자동화 스크립트
+# 6. 입력
 # ────────────────────────────────────────────────
 if not st.session_state.game_over:
-    with st.form(key=f"frm_{st.session_state.input_key}", clear_on_submit=True):
-        cols = st.columns([4, 1])
-        user_input = cols[0].text_input("단어 입력", placeholder="입력 후 엔터", label_visibility="collapsed")
+    with st.form(key="fixed_form", clear_on_submit=True):
+        cols = st.columns([4,1])
+        user_input = cols[0].text_input("", placeholder="단어 입력")
         submit = cols[1].form_submit_button("전송")
-
-    # 🔥 [핵심] 자동 포커스 및 자동 스크롤 자바스크립트
-    st.components.v1.html("""
-        <script>
-        (function() {
-            const doc = window.parent.document;
-            const runAutoActions = () => {
-                // 1. 포커스 자동 재배치
-                const input = doc.querySelector('input[data-testid="stTextInput"]');
-                if (input && doc.activeElement !== input) {
-                    input.focus();
-                }
-                // 2. 스크롤 자동 하단 이동
-                const chat = doc.querySelector('.chat-wrap');
-                if (chat) {
-                    chat.scrollTop = chat.scrollHeight;
-                }
-            };
-            
-            // 여러번 실행하여 렌더링 시점을 잡음
-            runAutoActions();
-            setTimeout(runAutoActions, 100);
-            setTimeout(runAutoActions, 300);
-            setTimeout(runAutoActions, 600);
-        })();
-        </script>
-    """, height=0)
 
     if submit and user_input:
         word = user_input.strip()
         possible_starts = get_start_chars(st.session_state.last_word[-1])
         
         if word in st.session_state.words and word not in st.session_state.used and word[0] in possible_starts:
-            # 유저 등록
             st.session_state.used.add(word)
-            st.session_state.history.append(("User", word))
+            
+            player_name = st.session_state.players[st.session_state.turn]
+            st.session_state.history.append((player_name, word))
+            
             st.session_state.chain += 1
             st.session_state.last_word = word
             
-            # AI 가속 및 딜레이 (체인이 높을수록 '뺌')
-            current_wait = max(0.2, 2.5 - (st.session_state.chain * 0.1))
-            wait_time = random.uniform(current_wait * 0.8, current_wait)
+            # 턴 변경
+            st.session_state.turn = "P2" if st.session_state.turn == "P1" else "P1"
+            st.session_state.turn_start = time.time()
             
-            with st.spinner(f"🔗 {st.session_state.chain}체인! AI가 고민 중..."):
-                time.sleep(wait_time) 
-            
-            # AI 답변 탐색
-            candidates = []
-            for ch in get_start_chars(word[-1]):
-                if ch in st.session_state.index:
-                    valid_words = [w for w in st.session_state.index[ch] if w not in st.session_state.used]
-                    candidates.extend(valid_words)
-            
-            if not candidates:
-                st.session_state.game_over = True
-                st.session_state.winner = "User"
-                st.balloons()
-                st.snow()
-            else:
-                ai_word = random.choice(candidates)
-                st.session_state.used.add(ai_word)
-                st.session_state.history.append(("AI", ai_word))
-                st.session_state.last_word = ai_word
-                st.session_state.chain += 1
-                st.session_state.turn_start = time.time()
-                st.session_state.input_key += 1
             st.rerun()
         else:
-            st.toast("❌ 규칙에 어긋나거나 이미 사용된 단어입니다!")
+            st.toast("❌ 잘못된 단어!")
 
-else:
-    # 종료 화면
-    if st.session_state.get("winner") == "User":
-        st.success("🎉 AI를 꺾고 승리하셨습니다!")
-        st.markdown(f'<h1 style="text-align:center; color:#FFD700;">🏆 VICTORY (Chain: {st.session_state.chain})</h1>', unsafe_allow_html=True)
-    else:
-        st.error(f"💀 GAME OVER! (최종 기록: {st.session_state.chain} 체인)")
-    
-    if st.button("🔄 다시 시작", use_container_width=True):
-        for k in list(st.session_state.keys()): del st.session_state[k]
-        st.rerun()
+# ────────────────────────────────────────────────
+# 7. 자동 스크롤 + 포커스
+# ────────────────────────────────────────────────
+st.components.v1.html("""
+<script>
+const fixUI = () => {
+    const win = window.parent.document;
 
-if not st.session_state.game_over:
-    time.sleep(0.1)
-    st.rerun()
+    const chat = win.querySelector('.chat-wrap');
+    const input = win.querySelector('input[type="text"]');
+
+    if (chat) chat.scrollTop = chat.scrollHeight;
+    if (input) input.focus();
+};
+
+const observer = new MutationObserver(fixUI);
+observer.observe(window.parent.document.body, {
+    childList: true,
+    subtree: true
+});
+
+fixUI();
+setInterval(fixUI, 500);
+</script>
+""", height=0)
