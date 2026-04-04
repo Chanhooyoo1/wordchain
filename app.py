@@ -1,12 +1,11 @@
 import random
 import time
 import re
-import json
 import streamlit as st
 from collections import defaultdict
 
 # ────────────────────────────────────────────────
-# 1. 설정 및 데이터 로드 함수
+# 1. 설정 및 JS 데이터 로드 함수
 # ────────────────────────────────────────────────
 
 def get_time_limit(chain: int) -> int:
@@ -27,33 +26,26 @@ DUEUM = {
 }
 
 @st.cache_data(show_spinner=False)
-def load_words_from_json(file_path="words.json", max_len=4):
-    """로컬 JSON 파일을 읽어 단어 셋과 인덱스를 생성합니다."""
+def load_words_from_js(file_path="allNouns.js"):
+    """JS 파일 내부의 따옴표 안 단어들을 정규식으로 추출합니다."""
     try:
         with open(file_path, "r", encoding="utf-8") as f:
-            raw_words = json.load(f)
+            content = f.read()
         
-        # 2~max_len 글자 사이의 한글 단어만 필터링 및 공백 제거
-        filtered_words = [
-            w.strip() for w in raw_words 
-            if re.match(r'^[가-힣]{2,' + str(max_len) + r'}$', w.strip())
-        ]
+        # JS 배열 내의 "단어" 또는 '단어' 추출 (2~4글자 한글)
+        found_words = re.findall(r'["\']([가-힣]{2,4})["\']', content)
         
-        words_frozen = frozenset(filtered_words)
-        
-        # 첫 글자 기준 인덱싱
+        words_frozen = frozenset(found_words)
         index = defaultdict(list)
         for word in words_frozen:
             index[word[0]].append(word)
             
-        return words_frozen, dict(index), f"로컬 파일 ({file_path})"
+        return words_frozen, dict(index), len(words_frozen)
     except FileNotFoundError:
-        return None, None, "파일 없음"
-    except Exception as e:
-        return None, None, f"오류 발생: {e}"
+        return None, None, 0
 
 # ────────────────────────────────────────────────
-# 2. 게임 로직 함수
+# 2. 게임 로직
 # ────────────────────────────────────────────────
 
 def get_start_chars(last_char: str) -> list:
@@ -65,18 +57,6 @@ def get_start_chars(last_char: str) -> list:
             chars.add(k)
     return list(chars)
 
-def is_valid_word(word, last_word, used, word_set):
-    if len(word) < 2:
-        return False, "두 글자 이상의 단어를 입력하세요."
-    if word not in word_set:
-        return False, f"'{word}'는 단어 목록에 없는 단어예요."
-    if word in used:
-        return False, f"'{word}'는 이미 사용한 단어예요."
-    valid_starts = get_start_chars(last_word[-1])
-    if word[0] not in valid_starts:
-        return False, f"'{last_word[-1]}'(으)로 이어지는 단어가 아니에요."
-    return True, ""
-
 def ai_pick(last_word, used, index):
     valid_starts = get_start_chars(last_word[-1])
     candidates = []
@@ -85,151 +65,117 @@ def ai_pick(last_word, used, index):
             candidates.extend([w for w in index[ch] if w not in used])
     if not candidates:
         return None
-    
-    # 상대방이 대답할 수 없는 단어(한방 단어 등)를 우선 탐색
-    dead_ends = [
-        w for w in candidates
-        if not any(
-            ch in index and any(x not in used and x != w for x in index[ch])
-            for ch in get_start_chars(w[-1])
-        )
-    ]
-    return random.choice(dead_ends if dead_ends else candidates)
+    return random.choice(candidates)
 
 # ────────────────────────────────────────────────
-# 3. 세션 상태 및 UI 초기화
-# ────────────────────────────────────────────────
-
-def reset_game():
-    for key in list(st.session_state.keys()):
-        del st.session_state[key]
-    st.rerun()
-
-def init_state():
-    if "initialized" not in st.session_state:
-        words, index, source = load_words_from_json()
-        
-        if words is None:
-            st.error(f"❌ 단어장을 불러올 수 없습니다. ({source})")
-            st.info("같은 폴더에 'words.json' 파일이 있는지 확인해주세요.")
-            st.stop()
-
-        first_word = random.choice(list(words))
-        st.session_state.words = words
-        st.session_state.word_source = source
-        st.session_state.index = index
-        st.session_state.used = {first_word}
-        st.session_state.last_word = first_word
-        st.session_state.history = [("AI", first_word)]
-        st.session_state.game_over = False
-        st.session_state.result_msg = ""
-        st.session_state.winner = None
-        st.session_state.initialized = True
-        st.session_state.input_key = 0
-        st.session_state.chain = 1
-        st.session_state.turn_start = time.time()
-
-# ────────────────────────────────────────────────
-# 4. 메인 UI 및 게임 루프
+# 3. UI 및 상태 초기화
 # ────────────────────────────────────────────────
 
 st.set_page_config(page_title="🎯 끝말잇기 PRO", layout="centered")
 
-# 스타일 적용
+# CSS 스타일 (난이도 뱃지 및 타이머 디자인)
 st.markdown("""
 <style>
-    .chat-wrap { background: #f5f7fa; border-radius: 16px; padding: 16px; height: 350px; overflow-y: auto; margin-bottom: 16px; border: 1px solid #e4e7ed; }
-    .msg-row-ai { display:flex; justify-content:flex-start; margin:8px 0; align-items:flex-end; gap:8px; }
-    .msg-row-user { display:flex; justify-content:flex-end; margin:8px 0; align-items:flex-end; gap:8px; }
-    .bubble-ai { background: #fff; border: 1px solid #dde1ea; border-radius: 18px 18px 18px 4px; padding: 10px 16px; font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
-    .bubble-user { background: linear-gradient(135deg, #4f8ef7, #6c63ff); color: #fff; border-radius: 18px 18px 4px 18px; padding: 10px 16px; font-weight: 600; }
-    .timer-bar-bg { background: #e4e7ed; border-radius: 10px; height: 10px; overflow: hidden; margin-top: 5px; }
+    .chat-wrap { background: #f8f9fa; border-radius: 15px; padding: 20px; height: 380px; overflow-y: auto; border: 1px solid #e9ecef; margin-bottom: 20px; }
+    .bubble-ai { background: white; padding: 10px 15px; border-radius: 15px 15px 15px 5px; border: 1px solid #dee2e6; font-weight: 600; }
+    .bubble-user { background: linear-gradient(135deg, #6e8efb, #a777e3); color: white; padding: 10px 15px; border-radius: 15px 15px 5px 15px; font-weight: 600; }
+    .timer-bar-bg { background: #e9ecef; border-radius: 10px; height: 12px; overflow: hidden; margin: 10px 0; }
     .timer-bar-fill { height: 100%; transition: width 0.5s linear; }
+    .stage-badge { padding: 4px 12px; border-radius: 20px; color: white; font-size: 0.85rem; font-weight: bold; margin-left: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
-init_state()
+if "initialized" not in st.session_state:
+    # 파일명을 본인이 가진 js 파일명(예: allNouns.js)으로 맞춰주세요
+    words, index, count = load_words_from_js("allNouns.js") 
+    if words is None or count == 0:
+        st.error("❌ JS 단어장 파일을 찾을 수 없거나 단어가 없습니다. (파일명 확인: allNouns.js)")
+        st.stop()
+    
+    first_word = random.choice(list(words))
+    st.session_state.update({
+        "words": words, "index": index, "used": {first_word},
+        "last_word": first_word, "history": [("AI", first_word)],
+        "game_over": False, "chain": 1, "turn_start": time.time(),
+        "input_key": 0, "initialized": True
+    })
 
-st.title("🎯 끝말잇기 PRO")
-st.caption(f"📚 {st.session_state.word_source} | 현재 단어수: {len(st.session_state.words):,}개")
+# ────────────────────────────────────────────────
+# 4. 게임 화면
+# ────────────────────────────────────────────────
 
-# 대시보드
+st.title("🎯 끝말잇기 PRO (JS Data)")
+
+# 난이도 및 색상 로직
 chain = st.session_state.chain
-time_limit = get_time_limit(chain)
-c1, c2, c3 = st.columns(3)
-c1.metric("체인 🔗", f"{chain}개")
-c2.metric("제한 시간 ⏱", f"{time_limit}초")
-c3.metric("누적 단어", f"{len(st.session_state.used)}개")
+if chain < 10: stage_label, stage_color = "🟢 일반", "#4caf50"
+elif chain < 20: stage_label, stage_color = "🟡 빠름", "#ff9800"
+elif chain < 30: stage_label, stage_color = "🟠 매우 빠름", "#ff5722"
+else: stage_label, stage_color = "🔴 극한", "#f44336"
 
-# 타이머 로직
+time_limit = get_time_limit(chain)
+
+# 대시보드 및 타이머
+c1, c2 = st.columns([1, 1])
+with c1:
+    st.markdown(f"**체인:** {chain} | **제한시간:** {time_limit}s")
+with c2:
+    st.markdown(f'<div style="text-align:right;"><span class="stage-badge" style="background:{stage_color};">{stage_label}</span></div>', unsafe_allow_html=True)
+
 if not st.session_state.game_over:
     elapsed = time.time() - st.session_state.turn_start
     remaining = max(0.0, time_limit - elapsed)
     ratio = remaining / time_limit
-    
     if remaining <= 0:
         st.session_state.game_over = True
-        st.session_state.winner = "ai"
-        st.session_state.result_msg = f"⏰ 시간 초과! (제한 {time_limit}초) AI 승리!"
         st.rerun()
+    st.markdown(f'<div class="timer-bar-bg"><div class="timer-bar-fill" style="width:{ratio*100}%; background:{stage_color};"></div></div>', unsafe_allow_html=True)
 
-    bar_color = "#4caf50" if ratio > 0.5 else "#ff9800" if ratio > 0.25 else "#f44336"
-    st.markdown(f"⏱ **남은 시간: {remaining:.1f}초**")
-    st.markdown(f'<div class="timer-bar-bg"><div class="timer-bar-fill" style="width:{ratio*100}%;background:{bar_color};"></div></div>', unsafe_allow_html=True)
-
-# 채팅 로그 표시
+# 채팅 로그
 chat_html = '<div class="chat-wrap">'
 for who, word in st.session_state.history:
-    if who == "AI":
-        chat_html += f'<div class="msg-row-ai">🤖<div class="bubble-ai">{word}</div></div>'
-    else:
-        chat_html += f'<div class="msg-row-user"><div class="bubble-user">{word}</div>👤</div>'
+    side = "ai" if who == "AI" else "user"
+    icon = "🤖" if who == "AI" else "👤"
+    justify = "flex-start" if who == "AI" else "flex-end"
+    chat_html += f'<div style="display:flex; justify-content:{justify}; margin-bottom:10px; align-items:center; gap:10px;">'
+    chat_html += f'{icon if who=="AI" else ""} <div class="bubble-{side}">{word}</div> {icon if who=="👤" else ""}'
+    chat_html += '</div>'
 chat_html += "</div>"
 st.markdown(chat_html, unsafe_allow_html=True)
 
-# 게임 결과 또는 입력 폼
-if st.session_state.game_over:
-    if st.session_state.winner == "user": st.success(st.session_state.result_msg)
-    else: st.error(st.session_state.result_msg)
-    if st.button("🔄 다시 시작", use_container_width=True):
-        reset_game()
-else:
+# 입력 폼
+if not st.session_state.game_over:
     last = st.session_state.last_word
     starts = get_start_chars(last[-1])
-    st.info(f"💡 **'{last}'** 다음 → **'{' 또는 '.join(starts)}'** (으)로 시작하세요.")
+    st.info(f"💡 **'{last}'** 다음 → **'{' 또는 '.join(starts)}'**")
 
     with st.form(key=f"input_{st.session_state.input_key}", clear_on_submit=True):
-        user_input = st.text_input("단어 입력", label_visibility="collapsed", placeholder="여기에 단어를 입력하세요")
-        submitted = st.form_submit_button("전송", use_container_width=True)
-
-    if submitted and user_input:
-        word = user_input.strip()
-        valid, err = is_valid_word(word, st.session_state.last_word, st.session_state.used, st.session_state.words)
-        
-        if not valid:
-            st.warning(f"❌ {err}")
-        else:
-            # 유저 턴 처리
-            st.session_state.used.add(word)
-            st.session_state.last_word = word
-            st.session_state.history.append(("나", word))
-            st.session_state.chain += 1
-            st.session_state.input_key += 1
-            
-            # AI 턴 처리
-            ai_word = ai_pick(word, st.session_state.used, st.session_state.index)
-            if ai_word is None:
-                st.session_state.game_over = True
-                st.session_state.winner = "user"
-                st.session_state.result_msg = f"🎉 AI가 단어를 찾지 못했습니다! 당신의 승리!"
-            else:
-                st.session_state.used.add(ai_word)
-                st.session_state.last_word = ai_word
-                st.session_state.history.append(("AI", ai_word))
+        user_input = st.text_input("단어 입력", label_visibility="collapsed")
+        if st.form_submit_button("전송", use_container_width=True):
+            word = user_input.strip()
+            if len(word) >= 2 and word in st.session_state.words and word not in st.session_state.used and word[0] in starts:
+                st.session_state.used.add(word)
+                st.session_state.last_word = word
+                st.session_state.history.append(("나", word))
                 st.session_state.chain += 1
-                st.session_state.turn_start = time.time()
-            st.rerun()
-
-    # 타이머 갱신용 리프레시
-    time.sleep(0.5)
+                
+                ai_word = ai_pick(word, st.session_state.used, st.session_state.index)
+                if ai_word:
+                    st.session_state.used.add(ai_word)
+                    st.session_state.last_word = ai_word
+                    st.session_state.history.append(("AI", ai_word))
+                    st.session_state.chain += 1
+                    st.session_state.turn_start = time.time()
+                    st.session_state.input_key += 1
+                else:
+                    st.session_state.game_over = True
+                st.rerun()
+            else:
+                st.warning("유효하지 않은 단어입니다.")
+    time.sleep(0.1)
     st.rerun()
+else:
+    st.error("🎮 GAME OVER")
+    if st.button("다시 시작"):
+        for key in list(st.session_state.keys()): del st.session_state[key]
+        st.rerun()
