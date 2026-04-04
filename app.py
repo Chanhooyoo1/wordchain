@@ -145,24 +145,37 @@ with st.form(key="fixed_form", clear_on_submit=True):
         submit = cols[1].form_submit_button("전송")
 
     # 🔥 JS: 포커스와 스크롤을 무조건 잡을 때까지 반복 (MutationObserver급 신뢰도)
-    st.components.v1.html(f"""
-        <script>
-        const scrollAndFocus = () => {{
-            const win = window.parent.document;
-            const chat = win.querySelector('.chat-wrap');
-            const input = win.querySelector('input[data-testid="stTextInput"]');
-            
-            if (chat) chat.scrollTop = chat.scrollHeight;
-            if (input && win.activeElement !== input) input.focus();
-        }};
-        
-        // 즉시 실행 및 주기적 보정 (Streamlit 렌더링 대응)
-        scrollAndFocus();
-        setTimeout(scrollAndFocus, 100);
-        setTimeout(scrollAndFocus, 300);
-        setTimeout(scrollAndFocus, 700);
-        </script>
-    """, height=0)
+st.components.v1.html("""
+<script>
+const fixUI = () => {
+    const win = window.parent.document;
+
+    const chat = win.querySelector('.chat-wrap');
+    const input = win.querySelector('input');
+
+    if (chat) {
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    if (input && win.activeElement !== input) {
+        input.focus();
+    }
+};
+
+// DOM 바뀔 때마다 실행
+const observer = new MutationObserver(fixUI);
+observer.observe(window.parent.document.body, {
+    childList: true,
+    subtree: true
+});
+
+// 반복 보정
+setInterval(fixUI, 400);
+
+// 초기 실행
+fixUI();
+</script>
+""", height=0)
 
     if submit and user_input:
         word = user_input.strip()
