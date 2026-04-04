@@ -26,7 +26,7 @@ DUEUM = {
 }
 
 @st.cache_data(show_spinner=False)
-def load_words_from_js(file_path="allNouns.js"):
+def load_words_from_js(file_path="words.js"):
     """JS 파일 내부의 따옴표 안 단어들을 정규식으로 추출합니다."""
     try:
         with open(file_path, "r", encoding="utf-8") as f:
