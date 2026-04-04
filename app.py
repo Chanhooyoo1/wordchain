@@ -38,7 +38,7 @@ def get_start_chars(last_char):
 # ────────────────────────────────────────────────
 # 3. 커스텀 CSS
 # ────────────────────────────────────────────────
-st.set_page_config(page_title="QUANTUM WORD BATTLE", layout="centered")
+st.set_page_config(page_title="끝말잇기", layout="centered")
 
 st.markdown("""
 <style>
@@ -78,15 +78,16 @@ st.markdown("""
 # ────────────────────────────────────────────────
 if "initialized" not in st.session_state:
     st.markdown('<div class="grad-title">QUANTUM WORD BATTLE</div>', unsafe_allow_html=True)
-    st.write("### 🎮 난이도를 선택해주세요")
-    diff = st.radio("난이도", ["Easy (20초)", "Normal (15초)", "Hard (10초)", "Hell (5초)"], horizontal=True)
+    st.write("### 시간을 선택해주세요.")
+    diff = st.radio("시간", ["쉬움 (20초)", "보통 (15초)", "어려움 (10초)", "지옥 (5초)"], horizontal=True)
+    print ("PC환경에서 실행을 권장합니다."
     
-    if st.button("게임 시작"):
+    if st.button("끝말잇기 시작!"):
         words, _ = load_word_data()
         index = defaultdict(list)
         for w in words: index[w[0]].append(w)
         
-        base_times = {"Easy (20초)": 20, "Normal (15초)": 15, "Hard (10초)": 10, "Hell (5초)": 5}
+        base_times = {"쉬움 (20초)": 20, "보통 (15초)": 15, "어려움 (10초)": 10, "지옥 (5초)": 5}
         first = random.choice(list(words))
         st.session_state.update({
             "words": words, "index": dict(index), "used": {first},
