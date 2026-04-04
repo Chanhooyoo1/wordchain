@@ -87,7 +87,7 @@ st.markdown("""
 
 if "initialized" not in st.session_state:
     # 파일명을 본인이 가진 js 파일명(예: allNouns.js)으로 맞춰주세요
-    words, index, count = load_words_from_js("allNouns.js") 
+    words, index, count = load_words_from_js("words.js") 
     if words is None or count == 0:
         st.error("❌ JS 단어장 파일을 찾을 수 없거나 단어가 없습니다. (파일명 확인: allNouns.js)")
         st.stop()
