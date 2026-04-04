@@ -127,7 +127,7 @@ if not st.session_state.game_over:
 
 starts = get_start_chars(st.session_state.last_word[-1])
 hint_text = " 또는 ".join([f'<b>"{s}"</b>' for s in starts])
-st.markdown(f'<div class="rule-hint">💡 다음 단어 시작: {hint_text}</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="rule-hint">{hint_text}</div>', unsafe_allow_html=True)
 
 # 채팅 출력
 chat_html = f'<div class="chat-wrap" id="chat-container">'
@@ -143,7 +143,7 @@ st.markdown(chat_html, unsafe_allow_html=True)
 if not st.session_state.game_over:
     with st.form(key="fixed_form", clear_on_submit=True):
             cols = st.columns([4, 1])
-            user_input = cols[0].text_input("단어 입력", placeholder="입력 후 엔터", label_visibility="collapsed")
+            user_input = cols[0].text_input("입력", placeholder="전송하려면 엔터를 누르세요..", label_visibility="collapsed")
             submit = cols[1].form_submit_button("전송")
     
         # 🔥 JS: 포커스와 스크롤을 무조건 잡을 때까지 반복 (MutationObserver급 신뢰도)
@@ -191,10 +191,10 @@ if not st.session_state.game_over:
             
             # 🔥 [랜덤 지연 시간] 체인이 높을수록 대기 시간을 '뺍니다'
             # 시작 대기 2.5초, 체인당 0.1초 차감, 최소 0.2초
-            calc_wait = max(0.2, 2.5 - (st.session_state.chain * 0.1))
+            calc_wait = max(0.2, 2.5 - (st.session_state.chain * 1))
             wait_time = random.uniform(calc_wait * 0.7, calc_wait) # 70%~100% 사이의 랜덤초
             
-            with st.spinner(f"🔗 AI가 {wait_time:.1f}초 동안 고민 중..."):
+            with st.spinner(f"AI가 고민 중..."):
                 time.sleep(wait_time) 
             
             candidates = []
@@ -217,15 +217,15 @@ if not st.session_state.game_over:
                 st.session_state.turn_start = time.time()
             st.rerun()
         else:
-            st.toast("❌ 잘못된 단어입니다!")
+            st.toast("❌ 잘못되거나 없는 단어입니다.")
 
 else:
     if st.session_state.get("winner") == "User":
-        st.success("🎉 VICTORY! AI가 단어를 찾지 못했습니다.")
+        st.success("🎉 승리! AI를 이겼습니다!")
     else:
-        st.error(f"💀 GAME OVER! (최종: {st.session_state.chain} 체인)")
+        st.error(f"💀 패배.. {st.session_state.chain}번 말을 이었습니다.")
     
-    if st.button("다시 시작"):
+    if st.button("🔄다시 시작"):
         for k in list(st.session_state.keys()): del st.session_state[k]
         st.rerun()
 
