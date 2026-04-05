@@ -131,6 +131,19 @@ if "initialized" not in st.session_state:
 # ────────────────────────────────────────────────
 st.markdown('<div class="grad-title">끝말잇기</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="chain-display">이은 단어 수: {st.session_state.chain}</div>', unsafe_allow_html=True)
+chain = st.session_state.chain
+remaining = max(0, st.session_state.total_time - (time.time() - st.session_state.game_start))
+
+if chain < 10:
+    multiplier = 1
+elif chain < 20:
+    multiplier = 2
+elif chain < 30:
+    multiplier = 3
+else:
+    multiplier = 5
+
+score = chain * 10 * multiplier + int(remaining)
 
 if not st.session_state.game_over:
     # 🔥 전체 시간 계산 (끄투 방식)
