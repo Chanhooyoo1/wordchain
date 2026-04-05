@@ -87,7 +87,7 @@ if "initialized" not in st.session_state:
         index = defaultdict(list)
         for w in words: index[w[0]].append(w)
         
-        base_times = {"쉬움 (20초)": 20, "보통 (15초)": 15, "어려움 (10초)": 10, "지옥 (5초)": 5}
+        base_times = {"쉬움 (20초)": 15, "보통 (13초)": 13, "어려움 (10초)": 10, "지옥 (5초)": 5}
         first = random.choice(list(words))
         st.session_state.update({
             "words": words, "index": dict(index), "used": {first},
@@ -102,20 +102,22 @@ if "initialized" not in st.session_state:
 # ────────────────────────────────────────────────
 # 5. 게임 로직 및 화면
 # ────────────────────────────────────────────────
-base_time = st.session_state.get("base_time", 13)
+base_time = st.session_state.get("base_time", 15)
 chain = st.session_state.chain
 base = st.session_state.base_time
 
 if chain < 5:
     current_max_time = base
-elif chain < 14:
+elif chain < 10:
+    current_max_time = base - 1
+elif chain < 15:
+    current_max_time = base - 2
+elif chain < 20:
     current_max_time = base - 3
-elif chain < 24:
-    current_max_time = base - 5
-elif chain < 38:
-    current_max_time = base - 8
+elif chain < 30:
+    current_max_time = base - 4
 else:
-    current_max_time = base - 9
+    current_max_time = base - 5
 
 current_max_time = max(2.0, current_max_time)
 
