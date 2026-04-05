@@ -129,23 +129,6 @@ if "initialized" not in st.session_state:
 # ────────────────────────────────────────────────
 # 5. 게임 로직 및 화면
 # ────────────────────────────────────────────────
-base_time = st.session_state.get("base_time", 15)
-chain = st.session_state.chain
-base = st.session_state.base_time
-
-if chain < 5:
-    current_max_time = base
-elif chain < 10:
-    current_max_time = base - 1
-elif chain < 15:
-    current_max_time = base - 2
-elif chain < 20:
-    current_max_time = base - 3
-elif chain < 30:
-    current_max_time = base - 4
-else:
-    current_max_time = base - 5
-
 current_max_time = max(2.0, current_max_time)
 
 st.markdown('<div class="grad-title">끝말잇기</div>', unsafe_allow_html=True)
