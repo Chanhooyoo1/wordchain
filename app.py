@@ -173,7 +173,6 @@ if not st.session_state.game_over:
 starts = get_start_chars(st.session_state.last_word[-1])
 hint_text = " 또는 ".join([f'<b>"{s}"</b>' for s in starts])
 st.markdown(f'<div class="rule-hint">{hint_text}</div>', unsafe_allow_html=True)
-st.markdown(f'<div class="rule-hint">{hint_text}</div>', unsafe_allow_html=True)
 
 # 채팅 출력
 chat_html = f'<div class="chat-wrap" id="chat-container">'
