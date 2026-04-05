@@ -129,8 +129,6 @@ if "initialized" not in st.session_state:
 # ────────────────────────────────────────────────
 # 5. 게임 로직 및 화면
 # ────────────────────────────────────────────────
-current_max_time = max(2.0, current_max_time)
-
 st.markdown('<div class="grad-title">끝말잇기</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="chain-display">이은 단어 수: {st.session_state.chain}</div>', unsafe_allow_html=True)
 
