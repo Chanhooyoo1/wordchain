@@ -27,7 +27,7 @@ DUEUM = {
     '류': '유', '리': '이', '락': '낙', '래': '내', '랭': '냉', '략': '약', '량': '양', '령': '영',
     '로': '노', '뢰': '뇌', '룡': '용', '루': '누', '륙': '육', '륜': '윤', '률': '율', '릉': '능',
     '린': '인', '림': '임', '립': '입', '라': '나', '랄': '날', '람': '남', '랍': '납', '랑': '낭',
-    '르': '느',
+    '르': '느', '념': '염', '렴': '염',
 }
 
 def get_start_chars(last_char):
@@ -120,8 +120,12 @@ if not st.session_state.game_over:
     elif ratio > 0.25: t_color = "#fd7e14"
     else: t_color = "#dc3545"
 
-    st.markdown(f"⏱ **남은 시간: {remaining:.1f}초**")
-    st.markdown(f'<div class="timer-container"><div class="timer-bar" style="width: {ratio*100}%; background-color: {t_color};"></div></div>', unsafe_allow_html=True)
+if remaining <= 2.5:
+    st.markdown(f'<div class="danger blink">⏱ {remaining:.1f}초 (위험!)</div>', unsafe_allow_html=True)
+elif remaining <= 5:
+    st.markdown(f'<div class="danger">⏱ {remaining:.1f}초</div>', unsafe_allow_html=True)
+else:
+    st.markdown(f"⏱ {remaining:.1f}초")
 
     if remaining <= 0:
         st.session_state.game_over = True
