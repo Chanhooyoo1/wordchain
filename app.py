@@ -4,9 +4,9 @@ import re
 import streamlit as st
 from collections import defaultdict
 
-# ─────────────────────────────
+# ────────────────────────────────────────────────
 # 1. 데이터 로드
-# ─────────────────────────────
+# ────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def load_word_data():
     try:
@@ -19,14 +19,15 @@ def load_word_data():
         pass
     return frozenset(["가구", "가방", "가수", "기차", "나비", "나무"]), "기본 샘플"
 
-# ─────────────────────────────
+
+# ────────────────────────────────────────────────
 # 2. 두음법칙
-# ─────────────────────────────
+# ────────────────────────────────────────────────
 DUEUM = {
-    '녀':'여','뇨':'요','뉴':'유','니':'이',
-    '랴':'야','려':'여','례':'예','료':'요',
-    '류':'유','리':'이','라':'나','래':'내',
-    '로':'노','루':'누'
+    '녀': '여','뇨': '요','뉴': '유','니': '이',
+    '랴': '야','려': '여','례': '예','료': '요',
+    '류': '유','리': '이','라': '나','래': '내',
+    '로': '노','루': '누'
 }
 
 def get_start_chars(last_char):
@@ -35,9 +36,10 @@ def get_start_chars(last_char):
         chars.add(DUEUM[last_char])
     return list(chars)
 
-# ─────────────────────────────
+
+# ────────────────────────────────────────────────
 # 3. UI
-# ─────────────────────────────
+# ────────────────────────────────────────────────
 st.set_page_config(page_title="끝말잇기", layout="centered")
 
 st.markdown("""
@@ -50,23 +52,27 @@ st.markdown("""
     font-weight: 800;
     text-align: center;
 }
+.chain-display {
+    text-align:center;
+    font-size:1.5rem;
+    font-weight:700;
+}
+.timer-container { width:100%; background:#eee; border-radius:10px; height:14px;}
+.timer-bar { height:100%; border-radius:10px;}
+.danger {color:red;}
+.blink {animation:blink 0.5s infinite;}
+@keyframes blink {0%{opacity:1;}50%{opacity:0.3;}100%{opacity:1;}}
 </style>
 """, unsafe_allow_html=True)
 
-# ─────────────────────────────
-# 4. 초기화 (🔥 핵심 수정)
-# ─────────────────────────────
-total_times = {
-    "쉬움 (150초)":150,
-    "보통 (120초)":120,
-    "어려움 (90초)":90,
-    "지옥 (60초)":60
-}
 
+# ────────────────────────────────────────────────
+# 4. 초기화
+# ────────────────────────────────────────────────
 if "initialized" not in st.session_state:
     st.markdown('<div class="grad-title">끝말잇기</div>', unsafe_allow_html=True)
 
-    diff = st.radio("시간", list(total_times.keys()), horizontal=True)
+    diff = st.radio("시간", ["쉬움 (20초)", "보통 (15초)", "어려움 (10초)", "지옥 (5초)"], horizontal=True)
 
     if st.button("끝말잇기 시작!"):
         words, _ = load_word_data()
@@ -77,6 +83,10 @@ if "initialized" not in st.session_state:
 
         first = random.choice(list(words))
 
+        base_times = {"쉬움 (20초)":20,"보통 (15초)":15,"어려움 (10초)":10,"지옥 (5초)":5}
+
+        total_times = {"쉬움 (20초)":150,"보통 (15초)":120,"어려움 (10초)":90,"지옥 (5초)":60}
+
         st.session_state.update({
             "words": words,
             "index": dict(index),
@@ -85,64 +95,82 @@ if "initialized" not in st.session_state:
             "history": [("AI", first)],
             "chain": 1,
 
-            "game_start": time.time(),
             "turn_start": time.time(),
-            "turn_limit": 5.0,
+            "game_start": time.time(),
+
+            "base_time": base_times[diff],
+            "total_time": total_times[diff],
 
             "game_over": False,
-            "total_time": total_times[diff],
             "initialized": True,
             "winner": None
         })
 
         st.rerun()
 
-    st.stop()   # 🔥 여기 반드시 필요
+    st.stop()
 
-# ─────────────────────────────
-# 5. 점수 (🔥 위치 수정)
-# ─────────────────────────────
-chain = st.session_state.chain
-remaining = max(0, st.session_state.total_time - (time.time() - st.session_state.game_start))
 
-if chain < 10:
-    multiplier = 1
-elif chain < 20:
-    multiplier = 2
-elif chain < 30:
-    multiplier = 3
-else:
-    multiplier = 5
+# ────────────────────────────────────────────────
+# 5. 시간 계산
+# ────────────────────────────────────────────────
+base_time = st.session_state.base_time
+current_max_time = base_time - (st.session_state.chain // 3)
+current_max_time = max(2.0, current_max_time)
 
-score = chain * 10 * multiplier + int(remaining)
+elapsed_turn = time.time() - st.session_state.turn_start
+remaining_turn = max(0.0, current_max_time - elapsed_turn)
 
-# ─────────────────────────────
+elapsed_total = time.time() - st.session_state.game_start
+remaining_total = max(0.0, st.session_state.total_time - elapsed_total)
+
+ratio = remaining_total / st.session_state.total_time
+
+
+# ────────────────────────────────────────────────
 # 6. UI
-# ─────────────────────────────
+# ────────────────────────────────────────────────
 st.markdown('<div class="grad-title">끝말잇기</div>', unsafe_allow_html=True)
-st.markdown(f"체인: {chain}")
-st.markdown(f"점수: {score}")
+st.markdown(f'<div class="chain-display">이은 단어 수: {st.session_state.chain}</div>', unsafe_allow_html=True)
 
-# ─────────────────────────────
-# 7. 타이머
-# ─────────────────────────────
 if not st.session_state.game_over:
-    elapsed_total = time.time() - st.session_state.game_start
-    remaining_total = st.session_state.total_time - elapsed_total
 
-    elapsed_turn = time.time() - st.session_state.turn_start
-    remaining_turn = st.session_state.turn_limit - elapsed_turn
-
-    if remaining_total <= 0 or remaining_turn <= 0:
+    # 게임오버 체크
+    if remaining_turn <= 0 or remaining_total <= 0:
         st.session_state.game_over = True
         st.rerun()
 
-    st.write(f"전체 시간: {remaining_total:.1f}초")
-    st.write(f"입력 시간: {remaining_turn:.1f}초")
+    # 텍스트
+    st.markdown(f"⏳ 전체 시간: {remaining_total:.1f}초")
+    
+    if remaining_turn <= 2.5:
+        st.markdown(f'<div class="danger blink">⚡ {remaining_turn:.1f}초</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f"⚡ 입력 시간: {remaining_turn:.1f}초")
 
-# ─────────────────────────────
-# 8. 입력
-# ─────────────────────────────
+    # 타이머 바
+    if ratio > 0.7:
+        color = "#28a745"
+    elif ratio > 0.4:
+        color = "#ffc107"
+    elif ratio > 0.2:
+        color = "#fd7e14"
+    else:
+        color = "#dc3545"
+
+    st.markdown(
+        f'<div class="timer-container"><div class="timer-bar" style="width:{ratio*100}%;background:{color};"></div></div>',
+        unsafe_allow_html=True
+    )
+
+# 힌트
+starts = get_start_chars(st.session_state.last_word[-1])
+st.markdown(" / ".join(starts))
+
+
+# ────────────────────────────────────────────────
+# 7. 입력
+# ────────────────────────────────────────────────
 if not st.session_state.game_over:
     user_input = st.text_input("단어 입력")
 
@@ -156,6 +184,7 @@ if not st.session_state.game_over:
             st.session_state.chain += 1
             st.session_state.last_word = word
 
+            # AI
             candidates = []
             for ch in get_start_chars(word[-1]):
                 if ch in st.session_state.index:
@@ -174,14 +203,18 @@ if not st.session_state.game_over:
 
             st.rerun()
         else:
-            st.warning("❌ 잘못된 단어")
+            st.warning("❌ 단어 오류")
 
-# ─────────────────────────────
-# 9. 종료
-# ─────────────────────────────
+
+# ────────────────────────────────────────────────
+# 8. 종료
+# ────────────────────────────────────────────────
 if st.session_state.game_over:
     st.error("💀 게임 종료")
 
     if st.button("다시 시작"):
         st.session_state.clear()
         st.rerun()
+
+time.sleep(0.1)
+st.rerun()
