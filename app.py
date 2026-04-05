@@ -110,16 +110,6 @@ current_max_time = max(2.0, current_max_time)
 st.markdown('<div class="grad-title">끝말잇기</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="chain-display">이은 단어 수: {st.session_state.chain}</div>', unsafe_allow_html=True)
 
-if not st.session_state.game_over:
-    elapsed = time.time() - st.session_state.turn_start
-    remaining = max(0.0, current_max_time - elapsed)
-    ratio = remaining / current_max_time
-    
-    if ratio > 0.75: t_color = "#28a745"
-    elif ratio > 0.5: t_color = "#ffc107"
-    elif ratio > 0.25: t_color = "#fd7e14"
-    else: t_color = "#dc3545"
-
 if remaining <= 2.5:
     st.markdown(f'<div class="danger blink">⏱ {remaining:.1f}초 (위험!)</div>', unsafe_allow_html=True)
 elif remaining <= 5:
@@ -130,6 +120,16 @@ else:
     if remaining <= 0:
         st.session_state.game_over = True
         st.rerun()
+
+if not st.session_state.game_over:
+    elapsed = time.time() - st.session_state.turn_start
+    remaining = max(0.0, current_max_time - elapsed)
+    ratio = remaining / current_max_time
+    
+    if ratio > 0.75: t_color = "#28a745"
+    elif ratio > 0.5: t_color = "#ffc107"
+    elif ratio > 0.25: t_color = "#fd7e14"
+    else: t_color = "#dc3545"
 
 starts = get_start_chars(st.session_state.last_word[-1])
 hint_text = " 또는 ".join([f'<b>"{s}"</b>' for s in starts])
