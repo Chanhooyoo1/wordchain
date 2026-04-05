@@ -108,14 +108,14 @@ base = st.session_state.base_time
 
 if chain < 5:
     current_max_time = base
-elif chain < 10:
-    current_max_time = base - 1
-elif chain < 15:
-    current_max_time = base - 2
-elif chain < 25:
+elif chain < 14:
     current_max_time = base - 3
+elif chain < 24:
+    current_max_time = base - 5
+elif chain < 38:
+    current_max_time = base - 8
 else:
-    current_max_time = base - 4
+    current_max_time = base - 9
 
 current_max_time = max(2.0, current_max_time)
 
