@@ -91,38 +91,34 @@ if "initialized" not in st.session_state:
 
     print("PC환경에서 실행을 권장합니다.")
 
-    if st.button("끝말잇기 시작!"):
-        words, _ = load_word_data()
-        index = defaultdict(list)
+if st.button("끝말잇기 시작!"):
+    words, _ = load_word_data()
+    index = defaultdict(list)
 
-        for w in words:
-            index[w[0]].append(w)
+    for w in words:
+        index[w[0]].append(w)
 
-        # 🔥 전체 시간 (끄투 방식)
-        total_times = {
-            "쉬움 (150초)": 150,
-            "보통 (120초)": 120,
-            "어려움 (90초)": 90,
-            "지옥 (60초)": 60
-        }
+    first = random.choice(list(words))
 
-        first = random.choice(list(words))
+    st.session_state.update({
+        "words": words,
+        "index": dict(index),
+        "used": {first},
+        "last_word": first,
+        "history": [("AI", first)],
+        "chain": 1,
 
-        st.session_state.update({
-            "words": words,
-            "index": dict(index),
-            "used": {first},
-            "last_word": first,
-            "history": [("AI", first)],
-            "chain": 1,
-            "game_start": time.time(),   # 🔥 핵심
-            "game_over": False,
-            "total_time": total_times[diff],  # 🔥 핵심
-            "initialized": True,
-            "winner": None
-        })
+        "game_start": time.time(),   # 전체 시간
+        "turn_start": time.time(),   # 🔥 여기 넣는거
+        "turn_limit": 5.0,           # 🔥 여기 넣는거
 
-        st.rerun()
+        "game_over": False,
+        "total_time": total_times[diff],
+        "initialized": True,
+        "winner": None
+    })
+
+    st.rerun()
 
     st.stop()
 
@@ -146,25 +142,22 @@ else:
 score = chain * 10 * multiplier + int(remaining)
 
 if not st.session_state.game_over:
-    # 🔥 전체 시간 계산 (끄투 방식)
-    elapsed = time.time() - st.session_state.game_start
-    total_time = st.session_state.total_time
-
-    remaining = max(0.0, total_time - elapsed)
-    ratio = remaining / total_time
-
-    # 🔥 게임 오버 체크
-    if remaining <= 0:
+    # 🔥 전체 시간
+    elapsed_total = time.time() - st.session_state.game_start
+    remaining_total = st.session_state.total_time - elapsed_total
+    
+    # 🔥 턴 시간
+    elapsed_turn = time.time() - st.session_state.turn_start
+    remaining_turn = st.session_state.turn_limit - elapsed_turn
+    
+    # 🔥 게임 오버
+    if remaining_total <= 0 or remaining_turn <= 0:
         st.session_state.game_over = True
         st.rerun()
-
-    # 🔥 타이머 텍스트
-    if remaining <= 10:
-        st.markdown(f'<div class="danger blink">⏱ {remaining:.1f}초 (위험!)</div>', unsafe_allow_html=True)
-    elif remaining <= 20:
-        st.markdown(f'<div class="danger">⏱ {remaining:.1f}초</div>', unsafe_allow_html=True)
-    else:
-        st.markdown(f"⏱ {remaining:.1f}초")
+    
+    # 🔥 UI 표시
+    st.markdown(f"⏳ 전체 시간: {remaining_total:.1f}초")
+    st.markdown(f"⚡ 입력 시간: {remaining_turn:.1f}초")
 
     # 🔥 타이머 색상
     if ratio > 0.7:
