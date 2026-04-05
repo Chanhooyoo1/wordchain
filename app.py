@@ -102,8 +102,20 @@ if "initialized" not in st.session_state:
 # ────────────────────────────────────────────────
 # 5. 게임 로직 및 화면
 # ────────────────────────────────────────────────
-base_time = st.session_state.get("base_time", 15)
-current_max_time = st.session_state.base_time - (st.session_state.chain // 5)
+base_time = st.session_state.get("base_time", 13)
+chain = st.session_state.chain
+base = st.session_state.base_time
+
+if chain < 5:
+    current_max_time = base
+elif chain < 10:
+    current_max_time = base - 1
+elif chain < 15:
+    current_max_time = base - 2
+elif chain < 25:
+    current_max_time = base - 3
+else:
+    current_max_time = base - 4
 
 current_max_time = max(2.0, current_max_time)
 
@@ -207,6 +219,12 @@ if not st.session_state.game_over:
             st.session_state.history.append(("User", word))
             st.session_state.chain += 1
             st.session_state.last_word = word
+            st.components.v1.html("""
+            <script>
+            const audio = new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_115b9b3c1c.mp3?filename=mouse-click-153941.mp3");
+            audio.play().catch(()=>{});
+            </script>
+            """, height=0)
             
             # 🔥 [랜덤 지연 시간] 체인이 높을수록 대기 시간을 '뺍니다'
             # 시작 대기 2.5초, 체인당 0.1초 차감, 최소 0.2초
