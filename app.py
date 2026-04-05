@@ -76,27 +76,54 @@ st.markdown("""
 # ────────────────────────────────────────────────
 # 4. 세션 초기화
 # ────────────────────────────────────────────────
+# ────────────────────────────────────────────────
+# 4. 세션 초기화 (끄투 모드)
+# ────────────────────────────────────────────────
 if "initialized" not in st.session_state:
     st.markdown('<div class="grad-title">끝말잇기</div>', unsafe_allow_html=True)
-    st.write("### 시간을 선택해주세요.")
-    diff = st.radio("시간", ["쉬움 (20초)", "보통 (15초)", "어려움 (10초)", "지옥 (5초)"], horizontal=True)
-    print ("PC환경에서 실행을 권장합니다.")
-    
+    st.write("### 전체 시간을 선택해주세요.")
+
+    diff = st.radio(
+        "시간",
+        ["쉬움 (150초)", "보통 (120초)", "어려움 (90초)", "지옥 (60초)"],
+        horizontal=True
+    )
+
+    print("PC환경에서 실행을 권장합니다.")
+
     if st.button("끝말잇기 시작!"):
         words, _ = load_word_data()
         index = defaultdict(list)
-        for w in words: index[w[0]].append(w)
-        
-        base_times = {"쉬움 (20초)": 15, "보통 (13초)": 13, "어려움 (10초)": 10, "지옥 (5초)": 5}
+
+        for w in words:
+            index[w[0]].append(w)
+
+        # 🔥 전체 시간 (끄투 방식)
+        total_times = {
+            "쉬움 (150초)": 150,
+            "보통 (120초)": 120,
+            "어려움 (90초)": 90,
+            "지옥 (60초)": 60
+        }
+
         first = random.choice(list(words))
+
         st.session_state.update({
-            "words": words, "index": dict(index), "used": {first},
-            "last_word": first, "history": [("AI", first)],
-            "chain": 1, "turn_start": time.time(), "input_key": 0,
-            "game_over": False, "base_time": base_times[diff],
-            "initialized": True, "winner": None
+            "words": words,
+            "index": dict(index),
+            "used": {first},
+            "last_word": first,
+            "history": [("AI", first)],
+            "chain": 1,
+            "game_start": time.time(),   # 🔥 핵심
+            "game_over": False,
+            "total_time": total_times[diff],  # 🔥 핵심
+            "initialized": True,
+            "winner": None
         })
+
         st.rerun()
+
     st.stop()
 
 # ────────────────────────────────────────────────
