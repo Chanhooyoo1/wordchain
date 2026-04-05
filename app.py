@@ -110,27 +110,40 @@ current_max_time = max(2.0, current_max_time)
 st.markdown('<div class="grad-title">끝말잇기</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="chain-display">이은 단어 수: {st.session_state.chain}</div>', unsafe_allow_html=True)
 
-if remaining <= 2.5:
-    st.markdown(f'<div class="danger blink">⏱ {remaining:.1f}초 (위험!)</div>', unsafe_allow_html=True)
-elif remaining <= 5:
-    st.markdown(f'<div class="danger">⏱ {remaining:.1f}초</div>', unsafe_allow_html=True)
-else:
-    st.markdown(f"⏱ {remaining:.1f}초")
+if not st.session_state.game_over:
+    # 1️⃣ 시간 계산 먼저
+    elapsed = time.time() - st.session_state.turn_start
+    remaining = max(0.0, current_max_time - elapsed)
+    ratio = remaining / current_max_time
 
+    # 2️⃣ 게임 오버 체크
     if remaining <= 0:
         st.session_state.game_over = True
         st.rerun()
 
-if not st.session_state.game_over:
-    elapsed = time.time() - st.session_state.turn_start
-    remaining = max(0.0, current_max_time - elapsed)
-    ratio = remaining / current_max_time
-    
-    if ratio > 0.75: t_color = "#28a745"
-    elif ratio > 0.5: t_color = "#ffc107"
-    elif ratio > 0.25: t_color = "#fd7e14"
-    else: t_color = "#dc3545"
+    # 3️⃣ 타이머 텍스트 (위험 효과)
+    if remaining <= 2.5:
+        st.markdown(f'<div class="danger blink">⏱ {remaining:.1f}초 (위험!)</div>', unsafe_allow_html=True)
+    elif remaining <= 5:
+        st.markdown(f'<div class="danger">⏱ {remaining:.1f}초</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f"⏱ {remaining:.1f}초")
 
+    # 4️⃣ 타이머 바 색상
+    if ratio > 0.75:
+        t_color = "#28a745"
+    elif ratio > 0.5:
+        t_color = "#ffc107"
+    elif ratio > 0.25:
+        t_color = "#fd7e14"
+    else:
+        t_color = "#dc3545"
+
+    # 5️⃣ 타이머 바 출력
+    st.markdown(
+        f'<div class="timer-container"><div class="timer-bar" style="width: {ratio*100}%; background-color: {t_color};"></div></div>',
+        unsafe_allow_html=True
+    )
 starts = get_start_chars(st.session_state.last_word[-1])
 hint_text = " 또는 ".join([f'<b>"{s}"</b>' for s in starts])
 st.markdown(f'<div class="rule-hint">{hint_text}</div>', unsafe_allow_html=True)
