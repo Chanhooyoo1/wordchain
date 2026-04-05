@@ -150,6 +150,9 @@ if not st.session_state.game_over:
     elapsed_turn = time.time() - st.session_state.turn_start
     remaining_turn = st.session_state.turn_limit - elapsed_turn
     
+    # 🔥 비율 (전체 시간 기준)
+    ratio = max(0.0, remaining_total / st.session_state.total_time)
+    
     # 🔥 게임 오버
     if remaining_total <= 0 or remaining_turn <= 0:
         st.session_state.game_over = True
@@ -158,8 +161,8 @@ if not st.session_state.game_over:
     # 🔥 UI 표시
     st.markdown(f"⏳ 전체 시간: {remaining_total:.1f}초")
     st.markdown(f"⚡ 입력 시간: {remaining_turn:.1f}초")
-
-    # 🔥 타이머 색상
+    
+    # 🔥 색상
     if ratio > 0.7:
         t_color = "#28a745"
     elif ratio > 0.4:
@@ -168,13 +171,12 @@ if not st.session_state.game_over:
         t_color = "#fd7e14"
     else:
         t_color = "#dc3545"
-
+    
     # 🔥 타이머 바
     st.markdown(
         f'<div class="timer-container"><div class="timer-bar" style="width: {ratio*100}%; background-color: {t_color};"></div></div>',
         unsafe_allow_html=True
     )
-
 # 🔥 힌트는 밖에 둬도 OK
 starts = get_start_chars(st.session_state.last_word[-1])
 hint_text = " 또는 ".join([f'<b>"{s}"</b>' for s in starts])
