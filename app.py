@@ -126,6 +126,62 @@ if not st.session_state.game_over:
     t_ratio = (turn_remaining / current_turn_max)
     st.write(f"⏳ 남은 시간: **{turn_remaining:.1f}**초 (현재 제한: {current_turn_max:.1f}초)")
     st.progress(t_ratio) # 스트림릿 기본 프로그레스 바 사용
+# ────────────────────────────────────────────────
+# 5. 게임 로직 및 화면
+# ────────────────────────────────────────────────
+base_time = st.session_state.get("base_time", 15)
+current_max_time = st.session_state.base_time - (st.session_state.chain // 5)
+
+current_max_time = max(2.0, current_max_time)
+
+st.markdown('<div class="grad-title">끝말잇기</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="chain-display">이은 단어 수: {st.session_state.chain}</div>', unsafe_allow_html=True)
+
+if not st.session_state.game_over:
+    # 1️⃣ 시간 계산 먼저
+    elapsed = time.time() - st.session_state.turn_start
+    remaining = max(0.0, current_max_time - elapsed)
+    ratio = remaining / current_max_time
+
+    # 2️⃣ 게임 오버 체크
+    if remaining <= 0:
+        st.session_state.game_over = True
+        st.rerun()
+
+    # 3️⃣ 타이머 텍스트 (위험 효과)
+    if remaining <= 2.5:
+        st.markdown(f'<div class="danger blink">⏱ {remaining:.1f}초 (위험!)</div>', unsafe_allow_html=True)
+    elif remaining <= 5:
+        st.markdown(f'<div class="danger">⏱ {remaining:.1f}초</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f"⏱ {remaining:.1f}초")
+
+    # 4️⃣ 타이머 바 색상
+    if ratio > 0.75:
+        t_color = "#28a745"
+    elif ratio > 0.5:
+        t_color = "#ffc107"
+    elif ratio > 0.25:
+        t_color = "#fd7e14"
+    else:
+        t_color = "#dc3545"
+
+    # 5️⃣ 타이머 바 출력
+    st.markdown(
+        f'<div class="timer-container"><div class="timer-bar" style="width: {ratio*100}%; background-color: {t_color};"></div></div>',
+        unsafe_allow_html=True
+    )
+starts = get_start_chars(st.session_state.last_word[-1])
+hint_text = " 또는 ".join([f'<b>"{s}"</b>' for s in starts])
+st.markdown(f'<div class="rule-hint">{hint_text}</div>', unsafe_allow_html=True)
+
+# 채팅 출력
+chat_html = f'<div class="chat-wrap" id="chat-container">'
+for speaker, text in st.session_state.history:
+    if speaker == "AI": chat_html += f'<div class="msg-row-ai"><div class="bubble-ai"> {text}</div></div>'
+    else: chat_html += f'<div class="msg-row-user"><div class="bubble-user">{text} 👤</div></div>'
+chat_html += '</div>'
+st.markdown(chat_html, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
 # 6. 입력 및 자동화 (포커스/스크롤 고도화)
