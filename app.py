@@ -190,11 +190,24 @@ if not st.session_state.get("round_over", False):
 
     # [E] 채팅창 출력 (역순 출력 - 최신 메시지가 위로)
     chat_html = '<div class="chat-wrap">'
+    
     # history는 [(스피커, 텍스트), ...] 구조
     for speaker, text in st.session_state.history:
+        # --- [추가된 부분] 누구의 메시지인지에 따라 스타일 변수 설정 ---
+        if speaker == "AI":
+            side = "ai"
+            bub = "bubble-ai"
+        else:
+            side = "user"
+            bub = "bubble-user"
+        # --------------------------------------------------------
+
         # 🔥 한방단어는 빨간색 굵게 표시
         style = "color: #FF0000; font-weight: bold; border: 2px solid #FF0000;" if "🔥" in text else ""
+        
+        # 이제 side와 bub 변수가 정의되었으므로 에러 없이 실행됩니다.
         chat_html += f'<div class="msg-row-{side}"><div class="{bub}" style="{style}">{text.replace("🔥","")}</div></div>'
+    
     chat_html += '</div>'
     st.markdown(chat_html, unsafe_allow_html=True)
 
