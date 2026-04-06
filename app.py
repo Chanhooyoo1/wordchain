@@ -79,7 +79,7 @@ st.markdown("""
 if "initialized" not in st.session_state:
     st.markdown('<div class="grad-title">끝말잇기</div>', unsafe_allow_html=True)
     st.write("### 시간을 선택해주세요.")
-    diff = st.radio("시간", ["쉬움 (20초)", "보통 (15초)", "어려움 (10초)", "지옥 (5초)"], horizontal=True)
+    diff = st.radio("시간", ["쉬움 (120초)", "보통 (90초)", "어려움 (60초)", "지옥 (10초)"], horizontal=True)
     print ("PC환경에서 실행을 권장합니다.")
     
     if st.button("끝말잇기 시작!"):
@@ -87,7 +87,7 @@ if "initialized" not in st.session_state:
         index = defaultdict(list)
         for w in words: index[w[0]].append(w)
         
-        base_times = {"쉬움 (20초)": 20, "보통 (15초)": 15, "어려움 (10초)": 10, "지옥 (5초)": 5}
+        base_times = {"쉬움 (120초)": 120, "보통 (90초)": 90, "어려움 (30초)": 30, "지옥 (10초)": 10}
         first = random.choice(list(words))
         st.session_state.update({
             "words": words, "index": dict(index), "used": {first},
