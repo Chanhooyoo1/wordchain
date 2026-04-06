@@ -92,46 +92,48 @@ if "initialized" not in st.session_state:
     st.stop()
 
 # ────────────────────────────────────────────────
-# 4. 게임 엔진 및 UI 렌더링 (통합)
+# 4. 게임 엔진: 실시간 시간 계산 (가속 시스템)
 # ────────────────────────────────────────────────
 
-if not st.session_state.get("game_over", False):
-    # [1. 계산] 모든 변수를 출력보다 먼저 계산합니다.
-    now = time.time()
-    turn_elapsed = now - st.session_state.turn_start
-    turn_rem = max(0.0, st.session_state.turn_limit - turn_elapsed)
+# 최초 시작 시 게임 시작 절대 시각 저장 (파란 바 기준점)
+if "game_start_time" not in st.session_state:
+    st.session_state.game_start_time = time.time()
+    st.session_state.total_limit = 120.0  # 공용 120초
 
-    # 노란 바 다 닳으면 파란 바 차감
-    if turn_rem <= 0:
-        st.session_state.total_bank_current -= 0.1
-        turn_rem = 0.0
+if not st.session_state.get("round_over", False):
+    # (1) 전체 흐른 시간 계산 (파란 바)
+    total_elapsed = time.time() - st.session_state.game_start_time
+    bank_rem = max(0.0, st.session_state.total_limit - total_elapsed)
+    bank_ratio = bank_rem / st.session_state.total_limit
 
-    # 파란 바 다 닳으면 패배 처리
-    if st.session_state.total_bank_current <= 0:
-        st.session_state.total_bank_current = 0.0
+    # (2) 가속 로직: 파란 바가 줄어들수록 턴 제한 시간(dynamic_limit)을 줄임
+    # 처음엔 10초 -> 마지막엔 최소 1.5초
+    dynamic_limit = 1.5 + (8.5 * bank_ratio) 
+    
+    # (3) 현재 턴 소모 시간 계산 (노란 바)
+    turn_elapsed = time.time() - st.session_state.turn_start
+    turn_rem = max(0.0, dynamic_limit - turn_elapsed)
+    turn_ratio = turn_rem / dynamic_limit
+
+    # (4) 패배 판정 (전체 시간 종료 OR 턴 시간 종료)
+    if bank_rem <= 0 or turn_rem <= 0:
         if not st.session_state.get("round_over", False):
             st.session_state.round_over = True
             st.session_state.ai_score += 1
+            st.session_state.winner = "AI"
             st.rerun()
 
-    # [2. UI 데이터 준비]
-    turn_ratio = turn_rem / st.session_state.turn_limit
-    bank_ratio = st.session_state.total_bank_current / st.session_state.total_bank_max
-    t_color = "#FF0055" if turn_rem < 3 else "#f1e05a"
-
-    # [3. 실제 화면 출력]
-    st.write(f"**Round {st.session_state.current_round} / {st.session_state.total_rounds}**")
+    # (5) UI 데이터 및 화면 출력
+    t_color = "#FF0055" if turn_ratio < 0.3 else "#f1e05a"
     
+    st.write(f"**Round {st.session_state.current_round} / {st.session_state.total_rounds}**")
     c1, c2 = st.columns(2)
     c1.metric("나 (User)", st.session_state.user_score)
     c2.metric("상대 (AI)", st.session_state.ai_score)
 
-    # ────────────────────────────────────────────────
-    # 🔥 [추가] 체인 및 시작 글자 안내 상자
-    # ────────────────────────────────────────────────
+    # 체인 및 시작 글자 상자
     starts = get_start_chars(st.session_state.last_word[-1])
     starts_display = ", ".join(starts)
-    
     st.markdown(f"""
         <div style="text-align: center; margin-top: 10px; margin-bottom: 15px;">
             <div style="display: inline-block; background: linear-gradient(135deg, #8A2BE2, #4B0082); color: white; padding: 4px 15px; border-radius: 20px; font-weight: bold; font-size: 1.1rem; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); border: 1px solid #fff;">
@@ -144,18 +146,21 @@ if not st.session_state.get("game_over", False):
         </div>
     """, unsafe_allow_html=True)
 
-    # [4. 타이머 바]
+    # 이중 가속 타이머 바
     st.markdown(f"""
-        <div style="width: 100%; background-color: #333; border-radius: 10px; height: 20px; overflow: hidden; margin-bottom: 5px; border: 1px solid #444;">
-            <div style="width: {turn_ratio * 100}%; height: 100%; background: {t_color}; transition: width 0.11s linear;"></div>
+        <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px; border: 1px solid #444;">
+            <div style="margin-bottom:8px;">
+                <p style="margin:0; font-size:11px; color:#3a86ff; font-weight:bold;">TOTAL TIME ({bank_rem:.1f}s)</p>
+                <div class="bank-container"><div style="width:{bank_ratio*100}%; background:#3a86ff; height:100%; transition: width 0.1s linear;"></div></div>
+            </div>
+            <div>
+                <p style="margin:0; font-size:12px; color:{t_color}; font-weight:bold;">TURN LIMIT ({turn_rem:.1f}s)</p>
+                <div class="timer-container"><div style="width:{turn_ratio*100}%; background:{t_color}; height:100%; transition: width 0.1s linear;"></div></div>
+            </div>
         </div>
-        <div style="width: 100%; background-color: #222; border-radius: 5px; height: 8px; overflow: hidden; border: 1px solid #333;">
-            <div style="width: {bank_ratio * 100}%; height: 100%; background: #3a86ff; transition: width 0.11s linear;"></div>
-        </div>
-        <p style="text-align:right; font-size:12px; color:#888; margin-top:2px;">여유 시간: {st.session_state.total_bank_current:.1f}s</p>
     """, unsafe_allow_html=True)
 
-    # [5. 채팅창]
+    # 채팅창 출력
     chat_html = '<div class="chat-wrap">'
     for speaker, text in st.session_state.history:
         side = "ai" if speaker == "AI" else "user"
@@ -163,28 +168,20 @@ if not st.session_state.get("game_over", False):
         chat_html += f'<div class="msg-row-{side}"><div class="{bub}">{text}</div></div>'
     chat_html += '</div>'
     st.markdown(chat_html, unsafe_allow_html=True)
+
 # ────────────────────────────────────────────────
-# 6. 입력 처리 및 AI 대응
-# ────────────────────────────────────────────────
-# ────────────────────────────────────────────────
-# 6. 입력 처리 및 AI 대응
+# 5. 입력 처리 및 AI 대응
 # ────────────────────────────────────────────────
 if not st.session_state.get("round_over", False):
-    starts = get_start_chars(st.session_state.last_word[-1])
-    # 상단 박스에서 이미 표시 중이라면 이 caption은 생략 가능
-    st.caption(f"시작 글자: {', '.join(starts)}")
-    
     with st.form(key="game_input", clear_on_submit=True):
         user_input = st.text_input("단어 입력", label_visibility="collapsed")
         if st.form_submit_button("전송") and user_input:
             word = user_input.strip()
             if word in st.session_state.words and word not in st.session_state.used and word[0] in starts:
-                # 유저 턴 성공
                 st.session_state.used.add(word)
                 st.session_state.history.append(("User", word))
                 st.session_state.chain += 1
                 
-                # AI 즉시 대응
                 candidates = []
                 for ch in get_start_chars(word[-1]):
                     if ch in st.session_state.index:
@@ -192,52 +189,50 @@ if not st.session_state.get("round_over", False):
                         candidates.extend(valid)
                 
                 if not candidates:
-                    st.session_state.round_over = True
-                    st.session_state.winner = "User"
-                    st.session_state.user_score += 1
+                    st.success(f"🎊 AI가 패배했습니다! {st.session_state.current_round}라운드 승리!")
+                    time.sleep(1.5)
+                    if st.session_state.current_round < st.session_state.total_rounds:
+                        new_first = random.choice(list(st.session_state.words))
+                        st.session_state.update({
+                            "current_round": st.session_state.current_round + 1,
+                            "user_score": st.session_state.user_score + 1,
+                            "used": {new_first}, "last_word": new_first,
+                            "history": [("AI", new_first)], "turn_start": time.time(),
+                            "chain": 1
+                        })
+                    else:
+                        st.session_state.round_over = True
+                        st.session_state.winner = "User"
+                        st.session_state.user_score += 1
+                    st.rerun()
                 else:
                     ai_word = random.choice(candidates)
                     st.session_state.used.add(ai_word)
                     st.session_state.history.append(("AI", ai_word))
                     st.session_state.last_word = ai_word
                     st.session_state.chain += 1
-                    st.session_state.turn_start = time.time() # 유저 턴 시작 시간 리셋
-                st.rerun()
+                    st.session_state.turn_start = time.time() # 노란 바만 리셋
+                    st.rerun()
             else:
                 st.toast("❌ 잘못된 단어입니다!")
 else:
-    # ────────────────────────────────────────────────
-    # 결과 화면 및 라운드 초기화 (round_over == True 일 때)
-    # ────────────────────────────────────────────────
-    if st.session_state.get("winner") == "User":
-        st.success("🎉 승리! AI가 단어를 찾지 못했습니다.")
-    else:
-        st.error("💀 패배! 시간이 초과되었습니다.")
-    
-    # 다음 라운드 여부 체크
+    # 패배 시 화면
+    st.error(f"💀 패배! {'시간 초과' if bank_rem <= 0 or turn_rem <= 0 else '단어를 찾지 못함'}")
     if st.session_state.current_round < st.session_state.total_rounds:
-        if st.button("다음 라운드 시작", key=f"next_rd_{st.session_state.current_round}"):
+        if st.button("다음 라운드 시작"):
             new_first = random.choice(list(st.session_state.words))
             st.session_state.update({
                 "current_round": st.session_state.current_round + 1,
-                "round_over": False,
-                "winner": None,
-                "used": {new_first},
-                "last_word": new_first,
-                "history": [("AI", new_first)],
-                "turn_start": time.time(),
-                "chain": 1,
-                "total_bank_current": st.session_state.total_bank_max
+                "round_over": False, "winner": None,
+                "used": {new_first}, "last_word": new_first,
+                "history": [("AI", new_first)], "turn_start": time.time(),
+                "chain": 1
             })
             st.rerun()
-    else:
-        if st.button("🔄 전체 게임 재시작", key="restart"):
-            # 세션 초기화 후 재시작
-            for k in list(st.session_state.keys()):
-                del st.session_state[k]
-            st.rerun()
 
-# 타이머 실시간 갱신 (라운드 중일 때만)
+# ────────────────────────────────────────────────
+# 6. 실시간 화면 새로고침 (타이머 작동용)
+# ────────────────────────────────────────────────
 if not st.session_state.get("round_over", False):
     time.sleep(0.1)
     st.rerun()
