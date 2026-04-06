@@ -166,16 +166,20 @@ if not st.session_state.get("round_over", False):
     """, unsafe_allow_html=True)
 
     # [D] 실시간 이중 타이머 바 (가속 엔진 연동)
-    t_color = "#FF0055" if actual_turn_ratio < 0.3 else "#f1e05a"
+t_color = "#FF0055" if actual_turn_ratio < 0.3 else "#f1e05a"
     st.markdown(f"""
         <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px; border: 1px solid #444;">
             <div style="margin-bottom:8px;">
                 <p style="margin:0; font-size:11px; color:#3a86ff; font-weight:bold;">총 시간 ({bank_rem:.1f}s)</p>
-                <div class="bank-container"><div style="width:{bank_ratio*100}%; background:#3a86ff; height:100%; transition: width 0.1s linear;"></div></div>
+                <div class="bank-container">
+                    <div style="width:{bank_ratio*100}%; background:#3a86ff; height:100%; transition: width 0.1s linear;"></div>
+                </div>
             </div>
             <div>
-                <p style="margin:0; font-size:12px; color:{t_color}; font-weight:bold;">차례 제한시간 ({actual_turn_rem:.1f}s) {" - 가속 중!" if bank_rem < 30 else ""}</p>
-                <div class="timer-container"><div style="width:{actual_turn_ratio*100}%; background:{t_color}; height:100%; transition: width 0.1s linear;"></div></div>
+                <p style="margin:0; font-size:12px; color:{t_color}; font-weight:bold;">차례 제한시간 ({actual_turn_rem:.1f}s)</p>
+                <div class="timer-container">
+                    <div style="width:{actual_turn_ratio*100}%; background:{t_color}; height:100%; transition: width 0.1s linear;"></div>
+                </div>
             </div>
         </div>
     """, unsafe_allow_html=True)
