@@ -300,25 +300,30 @@ with st.form(key="game_input", clear_on_submit=True):
 # 6. 라운드 종료 화면 
 # (중요: 이 else는 'if not round_over:'와 수직 선상이 같아야 합니다)
 # ────────────────────────────────────────────────
+# ────────────────────────────────────────────────
+# 6. 라운드 종료 화면 
+# (이 else는 'if not st.session_state.round_over:'와 수직 라인이 같아야 합니다)
+# ────────────────────────────────────────────────
 else:
-    # [체크 1] 변수 안전장치: bank_rem 등이 정의되지 않았을 경우를 대비합니다.
-    # 만약 위쪽 if문 안에서만 변수가 선언되었다면 여기서 NameError가 날 수 있습니다.
-    b_rem = st.session_state.get("bank_rem", 0) # 세션에서 가져오거나 0으로 기본값
-    t_rem = st.session_state.get("actual_turn_rem", 0) 
+    # [체크 1] 변수 안전장치 (NameError 방지)
+    # 게임 중이 아닐 때도 bank_rem 값을 안전하게 가져옵니다.
+    b_rem = st.session_state.get("bank_rem", 0)
+    t_rem = st.session_state.get("actual_turn_rem", 0)
     
-    # 1. 패배 메시지 표시
+    # 1. 패배 메시지 출력
+    # 시간이 다 된 건지, AI가 정답을 맞춰서 끝난 건지 구분합니다.
     reason = "시간 초과!" if (b_rem <= 0 or t_rem <= 0) else "AI의 역습!"
     st.error(f"💀 패배.. {reason}")
     
-    # 2. 다음 라운드가 남아있는 경우
+    # 2. 다음 라운드 진행 여부 체크
     if st.session_state.current_round < st.session_state.total_rounds:
         st.info(f"🕐 3초 후 {st.session_state.current_round + 1}라운드가 자동으로 시작됩니다...")
         
-        # 새 라운드 단어 세팅 (세션에 words가 리스트/셋 형태인지 확인)
+        # 새 라운드를 위한 초기화 작업
         new_first = random.choice(list(st.session_state.words))
         now_reset = time.time()
         
-        # [체크 2] 괄호 짝꿍과 세션 업데이트
+        # [체크 2] 세션 상태 업데이트 (괄호 짝꿍 완벽 확인)
         st.session_state.update({
             "round_over": False, 
             "winner": None,
@@ -331,14 +336,16 @@ else:
             "current_round": st.session_state.current_round + 1
         })
         
-        time.sleep(3) # 메시지를 읽을 시간
+        # 메시지를 읽을 시간을 준 뒤 화면 리프레시
+        time.sleep(3) 
         st.rerun()
 
-    # 3. 모든 라운드가 끝난 경우
+    # 3. 모든 라운드(최종 게임)가 완전히 끝난 경우
     else:
         st.warning("모든 라운드가 종료되었습니다!")
-        # [체크 3] 버튼 키값 중복 방지 (이미 restart_btn이 다른 곳에 있다면 바꿔야 함)
-        if st.button("🔄 처음부터 다시 시작하기", key="final_restart_btn"):
+        # [체크 3] 버튼 키값 중복 방지를 위해 유니크한 key 설정
+        if st.button("🔄 처음부터 다시 시작하기", key="game_final_restart"):
+            # 모든 데이터 삭제 후 초기 화면으로
             for k in list(st.session_state.keys()): 
                 del st.session_state[k]
             st.rerun()
