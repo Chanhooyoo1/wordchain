@@ -242,7 +242,6 @@ if not st.session_state.get("round_over", False):
                         st.session_state.winner = "User"
                         st.session_state.user_score += 1
                     st.rerun()
-                    else:
                     # 🕒 AI 고민 (난이도별로 고민 시간도 차별화 가능)
                     diff = st.session_state.get("difficulty", "보통")
                     
