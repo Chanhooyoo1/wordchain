@@ -207,30 +207,23 @@ else:
     else: st.error("💀 패배! 시간이 초과되었습니다.")
     
     if st.session_state.current_round < st.session_state.total_rounds:
-        if st.button("다음 라운드 시작", key=f"next_{st.session_state.current_round}"):
-        # 1. 단어 데이터에서 새로운 시작 단어 추출
-            new_first = random.choice(list(st.session_state.words))
-            
-            # 2. 세션 상태 완전 초기화 (중요!)
-            st.session_state.update({
-                "current_round": st.session_state.current_round + 1,
-                "round_over": False,        # 라운드 종료 상태 해제
-                "winner": None,             # 승자 기록 삭제
-                "used": {new_first},        # 사용 단어 리스트 리셋
-                "last_word": new_first,     # 마지막 단어 갱신
-                "history": [("AI", new_first)], # 채팅 기록 리셋
-                "turn_start": time.time(),  # 타이머 리셋
-                "chain": 1,                 # 체인 초기화
-                "total_bank_current": st.session_state.total_bank_max # 파란 바 충전
-            })
-            st.rerun()
-                new_first = random.choice(list(st.session_state.words))
-                st.session_state.update({
-                    "current_round": st.session_state.current_round + 1,
-                    "round_over": False, "used": {new_first}, "last_word": new_first,
-                    "history": [("AI", new_first)], "turn_start": time.time(), "winner": None
-                })
-                st.rerun()
+# 210라인 주변을 찾아서 아래처럼 간격을 맞춰주세요.
+    if st.button("다음 라운드 시작", key=f"next_rd_{st.session_state.current_round}"):
+        # 🚨 이 아랫줄들이 모두 같은 간격으로 안으로 들어가야 합니다!
+        new_first = random.choice(list(st.session_state.words))
+        
+        st.session_state.update({
+            "current_round": st.session_state.current_round + 1,
+            "round_over": False,
+            "winner": None,
+            "used": {new_first},
+            "last_word": new_first,
+            "history": [("AI", new_first)],
+            "turn_start": time.time(),
+            "chain": 1,
+            "total_bank_current": st.session_state.total_bank_max
+        })
+        st.rerun()
         else:
             if st.button("🔄 전체 게임 재시작", key="restart"):
                 for k in list(st.session_state.keys()): del st.session_state[k]
