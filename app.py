@@ -149,35 +149,38 @@ st.session_state.actual_turn_rem = actual_turn_rem
 # 5. 게임 중 UI 및 입력 처리 (이 if문은 맨 왼쪽 벽에서 4칸 들여쓰기)
 # ────────────────────────────────────────────────
 if not st.session_state.get("round_over", False):
-    # [A] 실시간 패배 판정 (4번 섹션의 가속 엔진 변수 연동)
-    if bank_rem <= 0 or actual_turn_rem <= 0:
+    
+    # [A] 실시간 패배 판정 (4번 세션의 가속 엔진 변수 연동)
+    # bank_rem과 actual_turn_rem은 4번 블록에서 이미 계산되었습니다.
+    if st.session_state.get("bank_rem", 1.0) <= 0 or st.session_state.get("actual_turn_rem", 1.0) <= 0:
         st.session_state.round_over = True
-        st.session_state.ai_score += 1
+        st.session_state.ai_score = st.session_state.get("ai_score", 0) + 1
         st.session_state.winner = "AI"
         st.rerun()
 
-    # [B] 상단 스코어 보드
-    st.write(f"**라운드 {st.session_state.current_round} / {st.session_state.total_rounds}**")
-    c1, c2 = st.columns(2)
-    c1.metric("나 (User)", st.session_state.user_score)
-    c2.metric("상대 (AI)", st.session_state.ai_score)
+    # [B] 상단 라운드 및 시간 정보 표시
+    # [수정 포인트]: .get()을 사용하여 초기화 전 에러 방지
+    c_round = st.session_state.get("current_round", 1)
+    t_rounds = st.session_state.get("total_rounds", 3)
+    
+    st.write(f"### 🏎️ 라운드 {c_round} / {t_rounds}")
+    
+    # 시간 표시 (메트릭)
+    col1, col2 = st.columns(2)
+    col1.metric("🏦 전체 뱅크 타임", f"{st.session_state.get('bank_rem', 0.0):.1f}s")
+    col2.metric("⚡ 이번 차례 제한", f"{st.session_state.get('actual_turn_rem', 0.0):.1f}s")
+    
+    # 게이지 바
+    st.progress(st.session_state.get("bank_ratio", 1.0), text="전체 남은 시간")
+    st.progress(st.session_state.get("actual_turn_ratio", 1.0), text="차례 제한 시간")
 
-    # [C] 체인 및 다음 글자 상자 UI
-    # last_word는 초기화 시 또는 AI 응답 시 세션에 저장됨
-    starts = get_start_chars(st.session_state.last_word[-1])
-    starts_display = " 또는 ".join(starts)
-    st.markdown(f"""
-        <div style="text-align: center; margin-top: 10px; margin-bottom: 15px;">
-            <div style="display: inline-block; background: linear-gradient(135deg, #FF0055, #7000FF); color: white; padding: 4px 15px; border-radius: 20px; font-weight: bold; font-size: 1.1rem; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); border: 1px solid #fff;">
-                이은 단어 수: {st.session_state.chain}
-            </div>
-            <div style="background: #ffffff; border: 2px solid #8A2BE2; border-radius: 12px; padding: 12px; box-shadow: inset 0 0 10px rgba(138,43,226,0.1);">
-                <div style="color: #666; font-size: 0.85rem; margin-bottom: 3px;">다음 시작 글자</div>
-                <div style="color: #FF0055; font-size: 1.5rem; font-weight: 900; letter-spacing: 2px;">{starts_display}</div>
-            </div>
-        </div>
-    """, unsafe_allow_html=True)
-
+    # [C] 게임 플레이 화면 (단어 입력 등)
+    st.divider()
+    st.write(f"🤖 AI의 마지막 단어: **{st.session_state.get('last_word', '???')}**")
+    
+    # 입력창 (포커스 유지를 위해 key에 chain 값을 섞음)
+    chain_num = st.session_state.get("chain", 0)
+    user_input = st.text_input("단어를 입력하고 엔터를 누르세요:", key=f"input_field_{chain_num}")
     # [D] 실시간 이중 타이머 바 (4번 섹션 변수 연동)
     t_color = "#FF0055" if actual_turn_ratio < 0.3 else "#f1e05a"
     
