@@ -151,10 +151,25 @@ if "initialized" not in st.session_state:
 if not st.session_state.get("game_over", False):
     
     # 시간 초과 시 라운드 종료
-    if remaining <= 0 and not st.session_state.round_over:
+# 1. 개인 턴 시간(노란 바) 계산
+now = time.time()
+turn_elapsed = now - st.session_state.turn_start
+turn_rem = max(0.0, st.session_state.turn_limit - turn_elapsed)
+
+# 2. 끄투식 '타임 오버' 로직 (노란 바가 다 닳았을 때)
+if turn_rem <= 0:
+    # 개인 시간이 끝났으므로, 이제 파란색 바(여유 시간)를 실시간으로 깎습니다.
+    # 0.1초 틱마다 실행되므로 0.1씩 차감 (주기에 맞춰 조절 가능)
+    st.session_state.total_bank_current -= 0.1 
+    turn_rem = 0.0 # 화면에는 계속 0.0으로 표시
+
+# 3. 진짜 패배 처리 (파란 바가 완전히 0이 되었을 때만!)
+if st.session_state.total_bank_current <= 0:
+    st.session_state.total_bank_current = 0.0 # 음수 방지
+    if not st.session_state.get("round_over", False):
         st.session_state.round_over = True
-        st.session_state.ai_score += 1
-        st.rerun()
+        st.session_state.ai_score += 1 # 상대(AI) 점수 추가
+        st.rerun() # 패배 화면으로 전환
 
     # 상단 정보 표시
     st.markdown(f'<div class="round-info">Round {st.session_state.current_round} / {st.session_state.total_rounds}</div>', unsafe_allow_html=True)
