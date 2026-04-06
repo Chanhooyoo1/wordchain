@@ -152,8 +152,8 @@ if not st.session_state.get("game_over", False):
     
     # 시간 초과 시 라운드 종료
 # 1. 개인 턴 시간(노란 바) 계산
-now = time.time()
-turn_elapsed = now - st.session_state.turn_start
+    now = time.time()
+    turn_elapsed = now - st.session_state.turn_start
 
 # 2. 끄투식 '타임 오버' 로직 (노란 바가 다 닳았을 때)
 if turn_rem <= 0:
