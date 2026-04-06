@@ -141,6 +141,7 @@ actual_turn_ratio = actual_turn_rem / dynamic_limit
 # ────────────────────────────────────────────────
 # 5. 게임 중 UI 및 입력 처리
 # ────────────────────────────────────────────────
+if not st.session_state.get("round_over", False):
 # [A] 실시간 패배 판정 (가속 엔진 연동)
     if bank_rem <= 0 or actual_turn_rem <= 0:
         st.session_state.round_over = True
