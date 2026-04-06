@@ -190,12 +190,27 @@ if not st.session_state.get("round_over", False):
 
     # [E] 채팅창 출력 (역순 출력 - 최신 메시지가 위로)
     chat_html = '<div class="chat-wrap">'
-    # history는 [(스피커, 텍스트), ...] 구조
-    for speaker, text in reversed(st.session_state.history):
-        side, bub = ("ai", "bubble-ai") if speaker == "AI" else ("user", "bubble-user")
-        # 🔥 한방단어는 빨간색 굵게 표시
-        style = "color: #FF0000; font-weight: bold; border: 2px solid #FF0000;" if "🔥" in text else ""
-        chat_html += f'<div class="msg-row-{side}"><div class="{bub}" style="{style}">{text.replace("🔥","")}</div></div>'
+    
+    # [핵심 수정]: history 데이터를 reversed()로 뒤집어서 최신 것이 먼저 나오게 합니다.
+    # 안전하게 .get()을 사용하고, 데이터가 있을 때만 reversed를 적용합니다.
+    history_list = st.session_state.get("history", [])
+    
+    if history_list:
+        # reversed() 함수로 데이터를 역순으로 바꿉니다.
+        for speaker, text in reversed(history_list):
+            if speaker == "AI":
+                side = "ai"
+                bub = "bubble-ai"
+            else:
+                side = "user"
+                bub = "bubble-user"
+
+            # 🔥 한방단어는 빨간색 굵게 표시 스타일
+            style = "color: #FF0000; font-weight: bold; border: 2px solid #FF0000; box-shadow: 0 0 10px rgba(255,0,0,0.3);" if "🔥" in text else ""
+            
+            # replace("🔥","")로 원본 데이터의 불꽃 이모지는 지우고 스타일만 적용
+            chat_html += f'<div class="msg-row-{side}"><div class="{bub}" style="{style}">{text.replace("🔥","")}</div></div>'
+    
     chat_html += '</div>'
     st.markdown(chat_html, unsafe_allow_html=True)
 
