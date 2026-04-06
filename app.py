@@ -228,22 +228,36 @@ if not st.session_state.get("round_over", False):
 # 6. 라운드 종료 화면 (에러 완벽 방지 구역)
 # ────────────────────────────────────────────────
 else:
-    # 4번 섹션에서 미리 계산된 변수를 사용하므로 에러 없음
+    # 1. 패배 메시지 표시
     st.error(f"💀 패배! {'시간 초과' if (bank_rem <= 0 or turn_rem <= 0) else 'AI의 역습'}")
     
+    # 다음 라운드가 남아있는 경우
     if st.session_state.current_round < st.session_state.total_rounds:
-        if st.button("다음 라운드 시작", key="next_rd_btn"):
-            new_first = random.choice(list(st.session_state.words))
-            st.session_state.update({
-                "round_over": False, "winner": None,
-                "used": {new_first}, "last_word": new_first,
-                "history": [("AI", new_first)], "turn_start": time.time(), "chain": 1
-            })
-            st.rerun()
+        st.info(f"⏳ 3초 후 {st.session_state.current_round + 1}라운드가 자동으로 시작됩니다...")
+        
+        # [수정] 버튼 없이 자동으로 데이터 업데이트
+        new_first = random.choice(list(st.session_state.words))
+        st.session_state.update({
+            "round_over": False, 
+            "winner": None,
+            "used": {new_first}, 
+            "last_word": new_first,
+            "history": [("AI", new_first)], 
+            "turn_start": time.time(), 
+            "chain": 1,
+            "current_round": st.session_state.current_round + 1 # 라운드 번호 증가
+        })
+        
+        time.sleep(3) # 사용자가 패배 원인을 볼 시간 확보
+        st.rerun()    # 🚀 첫 번째 리런 (자동 실행)
+
+    # 모든 라운드가 끝난 경우
     else:
-        if st.button("🔄 전체 게임 재시작", key="restart_btn"):
-            for k in list(st.session_state.keys()): del st.session_state[k]
-            st.rerun()
+        st.warning("🏁 모든 라운드가 종료되었습니다!")
+        if st.button("🔄 처음부터 다시 시작하기", key="restart_btn"):
+            for k in list(st.session_state.keys()): 
+                del st.session_state[k]
+            st.rerun() # 🚀 두 번째 리런 (버튼 클릭 시 실행)
 
 # ────────────────────────────────────────────────
 # 7. 실시간 무한 새로고침 (0.1초 단위)
