@@ -185,21 +185,27 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # [E] 채팅창 (여기서부터 들여쓰기가 중요합니다!)
-    chat_html = '<div class="chat-wrap">' 
-    for speaker, text in st.session_state.history:
-        side = "ai" if speaker == "AI" else "user"
-        bub = "bubble-ai" if speaker == "AI" else "bubble-user"
+# [E] 채팅창 (이 줄의 시작 위치가 위쪽 st.markdown과 수직으로 일치해야 합니다)
+chat_html = '<div class="chat-wrap">'
+
+for speaker, text in st.session_state.history:
+    side = "ai" if speaker == "AI" else "user"
+    bub = "bubble-ai" if speaker == "AI" else "bubble-user"
+    
+    # 🔥 한방단어(불꽃 마크)가 있으면 빨간색 스타일 적용
+    if "🔥" in text:
+        display_text = text.replace("🔥", "")
+        style = "color: #FF0000; font-weight: bold; border: 2px solid #FF0000;"
+    else:
+        display_text = text
+        style = ""
         
-        if "🔥" in text:
-            display_text = text.replace("🔥", "")
-            style = "color: #FF0000; font-weight: bold; border: 2px solid #FF0000;"
-        else:
-            display_text = text
-            style = ""
-            
-        chat_html += f'<div class="msg-row-{side}"><div class="{bub}" style="{style}">{display_text}</div></div>'
-    chat_html += '</div>'
-    st.markdown(chat_html, unsafe_allow_html=True)
+    # [주의] 아래 줄은 반드시 for문 안쪽에(들여쓰기 유지) 있어야 합니다!
+    chat_html += f'<div class="msg-row-{side}"><div class="{bub}" style="{style}">{display_text}</div></div>'
+
+# [중요] for문이 끝난 후 태그를 닫아줍니다 (for문과 세로 줄 맞춤)
+chat_html += '</div>'
+st.markdown(chat_html, unsafe_allow_html=True)
 
     # [F] 단어 입력 폼 및 AI 대응 로직
     with st.form(key="game_input", clear_on_submit=True):
