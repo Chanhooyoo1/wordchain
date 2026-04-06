@@ -99,31 +99,42 @@ if "initialized" not in st.session_state:
     with col1:
         total_rounds = st.number_input("총 라운드 수", min_value=1, max_value=10, value=3)
     with col2:
-        turn_limit = st.slider("턴 시간 제한 (초)", min_value=3, max_value=20, value=10)
+        # 이전에 정의한 time_choice(selectbox)가 있다면 그것을 사용하고, 
+        # 없다면 여기 slider 변수명을 time_choice로 맞추거나 수정해야 합니다.
+        time_choice = st.selectbox("턴 시간 제한 (초)", [120, 90, 60, 30, 10], index=3)
     
     if st.button("게임 입장하기", use_container_width=True):
-            # 💡 요청하신 고정 여유 시간(파란 바) 매핑 로직
-            bank_mapping = {120: 15.0, 90: 13.0, 60: 10.0, 30: 6.0, 10: 2.0}
-            total_bank = bank_mapping[time_choice]
-            
-            words = load_word_data()
-            idx = defaultdict(list)
-            for w in words: idx[w[0]].append(w)
-            
-            first = random.choice(list(words))
-            st.session_state.update({
-                "initialized": True, "words": words, "index": dict(idx),
-                "turn_limit": float(time_choice),
-                "total_bank_max": total_bank,
-                "total_bank_current": total_bank,
-                "current_round": 1, "total_rounds": total_rounds,
-                "user_score": 0, "ai_score": 0,
-                "used": {first}, "last_word": first, "history": [("AI", first)],
-                "turn_start": time.time(), "game_over": False, "round_over": False
-            })
-            st.rerun()
-        st.stop()
+        # 💡 고정 여유 시간(파란 바) 매핑 로직
+        bank_mapping = {120: 15.0, 90: 13.0, 60: 10.0, 30: 6.0, 10: 2.0}
+        total_bank = bank_mapping[time_choice]
+        
+        words = load_word_data()
+        idx = defaultdict(list)
+        for w in words: idx[w[0]].append(w)
+        
+        first = random.choice(list(words))
+        st.session_state.update({
+            "initialized": True, 
+            "words": words, 
+            "index": dict(idx),
+            "turn_limit": float(time_choice),
+            "total_bank_max": total_bank,
+            "total_bank_current": total_bank,
+            "current_round": 1, 
+            "total_rounds": total_rounds,
+            "user_score": 0, 
+            "ai_score": 0,
+            "used": {first}, 
+            "last_word": first, 
+            "history": [("AI", first)],
+            "turn_start": time.time(), 
+            "game_over": False, 
+            "round_over": False
+        })
+        st.rerun()
 
+    # st.stop()은 if st.button과 세로 줄이 맞아야 합니다.
+    st.stop()
 # ────────────────────────────────────────────────
 # 5. 게임 로직 (라운드 및 턴 타이머)
 # ────────────────────────────────────────────────
