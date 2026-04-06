@@ -185,7 +185,6 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # [E] 채팅창 (여기서부터 들여쓰기가 중요합니다!)
-    # 이 줄의 맨 앞 공백을 모두 지우고, 위쪽 st.markdown과 세로 줄을 맞추세요.
     chat_html = '<div class="chat-wrap">' 
     for speaker, text in st.session_state.history:
         side = "ai" if speaker == "AI" else "user"
