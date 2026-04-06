@@ -150,7 +150,7 @@ if "initialized" not in st.session_state:
 # ────────────────────────────────────────────────
 # 5. 게임 로직 (라운드 및 턴 타이머)
 # ────────────────────────────────────────────────
-if not st.session_state.game_complete:
+if not st.session_state.game_over:
     # 턴 시간 계산
     elapsed = time.time() - st.session_state.turn_start
     remaining = max(0.0, st.session_state.turn_limit - elapsed)
