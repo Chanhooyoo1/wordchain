@@ -117,19 +117,19 @@ if "initialized" not in st.session_state:
         })
         st.rerun()
     st.stop() # 게임 시작 전에는 아래 로직 실행 방지
-
 # ────────────────────────────────────────────────
-# 4. 실시간 가속 엔진 (중요: 에러 방지를 위해 if문 밖에서 계산)
+# 4. 실시간 가속 엔진 (120초 시 15초 / 10초 시 3초 버전)
 # ────────────────────────────────────────────────
 now = time.time()
 total_elapsed = now - st.session_state.game_start_time
 bank_rem = max(0.0, st.session_state.total_limit - total_elapsed)
 bank_ratio = bank_rem / st.session_state.total_limit
 
-# 보정된 공식: 
-# 전체 120초 기준, 80초 남았을 때 약 7.5초 / 10초 남았을 때 딱 3초가 나옵니다.
-# 지수를 1.5에서 1.1로 낮추어 초반 급락을 방지했습니다.
-dynamic_limit = 1.8 + (8.2 * (bank_ratio ** 1.1)) 
+# 🎯 새 수식: 1.5 + (13.5 * bank_ratio^1.8)
+# 전체 120초(bank_ratio=1.0) -> 약 15.0초
+# 전체 80초(bank_ratio=0.66) -> 약 8.0초
+# 전체 10초(bank_ratio=0.08) -> 약 3.0초 🔥
+dynamic_limit = 1.5 + (13.5 * (bank_ratio ** 1.8)) 
 
 turn_elapsed = now - st.session_state.turn_start
 actual_turn_rem = max(0.0, dynamic_limit - turn_elapsed)
