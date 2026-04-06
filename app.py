@@ -44,6 +44,19 @@ st.set_page_config(page_title="끝말잇기", layout="centered")
 
 st.markdown("""
 <style>
+/* 전체 타이머 박스 */
+    .kkutu-timer-box {
+        background: #4a3a2a; border: 3px solid #d4a373; border-radius: 8px;
+        padding: 5px; width: 100%; font-family: 'Courier New', Courier, monospace;
+    }
+    /* 상단 노란색 바 (개인 턴) */
+    .turn-bar-bg { background: #333; height: 25px; margin-bottom: 4px; border-radius: 4px; position: relative; }
+    .turn-bar-fill { background: #f1e05a; height: 100%; border-radius: 4px; transition: width 0.1s linear; }
+    /* 하단 파란색 바 (전체 여유 시간) */
+    .total-bar-bg { background: #1a2a3a; height: 25px; border-radius: 4px; position: relative; }
+    .total-bar-fill { background: #3a86ff; height: 100%; border-radius: 4px; transition: width 0.1s linear; }
+    /* 바 내부 텍스트 */
+    .bar-text { position: absolute; right: 8px; top: 2px; color: white; font-weight: bold; text-shadow: 1px 1px 2px black; font-size: 14px; }
     .grad-title {
         background: linear-gradient(90deg, #FF0000, #8A2BE2);
         -webkit-background-clip: text;
