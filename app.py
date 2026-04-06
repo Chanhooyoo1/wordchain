@@ -149,8 +149,6 @@ if "initialized" not in st.session_state:
 # 5. 게임 로직 (라운드 및 턴 타이머)
 # ────────────────────────────────────────────────
 if not st.session_state.get("game_over", False):
-    elapsed = time.time() - st.session_state.turn_start
-    remaining = max(0.0, st.session_state.turn_limit - elapsed)
     
     # 시간 초과 시 라운드 종료
     if remaining <= 0 and not st.session_state.round_over:
