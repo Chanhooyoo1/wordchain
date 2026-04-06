@@ -64,13 +64,15 @@ st.markdown("""
 # ────────────────────────────────────────────────
 if "initialized" not in st.session_state:
     st.markdown('<div class="grad-title">끄투 온라인 Lite</div>', unsafe_allow_html=True)
+    
     col1, col2 = st.columns(2)
-    with col1: total_rounds = st.number_input("총 라운드 수", 1, 10, 3)
-    with col2: time_choice = st.selectbox("턴 시간 제한 (초)", [120, 90, 60, 30, 10], index=3)
+    with col1: 
+        total_rounds = st.number_input("총 라운드 수", 1, 10, 3)
+    with col2: 
+        # 이제 이 선택지는 '전체 게임 시간'을 결정하는 용도로 사용합니다.
+        time_choice = st.selectbox("전체 제한 시간 (초)", [180, 120, 90, 60], index=1)
     
     if st.button("게임 입장하기"):
-        bank_mapping = {120: 15.0, 90: 13.0, 60: 10.0, 30: 6.0, 10: 2.0}
-        total_bank = bank_mapping.get(time_choice, 6.0)
         words_data = load_word_data()
         
         idx = defaultdict(list)
@@ -80,13 +82,31 @@ if "initialized" not in st.session_state:
                 idx[w[0]].append(w)
                 valid_words.append(w)
         
+        # 첫 단어 선정
         first = random.choice(valid_words)
+        now = time.time()
+        
         st.session_state.update({
-            "initialized": True, "words": frozenset(valid_words), "index": dict(idx),
-            "user_score": 0, "ai_score": 0, "current_round": 1, "total_rounds": total_rounds,
-            "turn_limit": float(time_choice), "total_bank_max": total_bank, "total_bank_current": total_bank,
-            "used": {first}, "last_word": first, "history": [("AI", first)],
-            "turn_start": time.time(), "round_over": False, "chain": 1, "winner": None
+            "initialized": True, 
+            "words": frozenset(valid_words), 
+            "index": dict(idx),
+            "user_score": 0, 
+            "ai_score": 0, 
+            "current_round": 1, 
+            "total_rounds": total_rounds,
+            
+            # --- 가속 시스템 핵심 변수 ---
+            "game_start_time": now,        # 게임 전체 시작 시각
+            "total_limit": float(time_choice), # 파란 바 전체 시간 (예: 120s)
+            "turn_start": now,             # 현재 턴 시작 시각 (노란 바 리셋용)
+            # ---------------------------
+            
+            "used": {first}, 
+            "last_word": first, 
+            "history": [("AI", first)],
+            "round_over": False, 
+            "chain": 1, 
+            "winner": None
         })
         st.rerun()
     st.stop()
