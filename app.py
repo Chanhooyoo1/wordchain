@@ -1,3 +1,4 @@
+
 import random
 import time
 import re
@@ -76,56 +77,43 @@ st.markdown("""
 # ────────────────────────────────────────────────
 # 4. 세션 초기화
 # ────────────────────────────────────────────────
-# ────────────────────────────────────────────────
-# 4. 세션 초기화 (게임 시작 전 설정 화면)
-# ────────────────────────────────────────────────
 if "initialized" not in st.session_state:
+    # 1. 현재 난이도에 따른 턴 제한 시간 설정 (3체인당 1초 감소, 최소 1.5초)
+    base_turn_limit = st.session_state.turn_limit  # 초기 설정값 (예: 10초)
+    current_turn_max = max(1.5, base_turn_limit - (st.session_state.chain // 3))
+    
+    # 2. 경과 시간 및 남은 시간 계산
+    now = time.time()
+    turn_elapsed = now - st.session_state.turn_start_time
+    turn_remaining = max(0.0, current_turn_max - turn_elapsed)
+
+# 3. 시간 초과 시 게임 종료 처리
+if turn_remaining <= 0:
+    st.session_state.game_over = True
+    st.session_state.winner = "AI"
+    st.rerun()
     st.markdown('<div class="grad-title">끝말잇기</div>', unsafe_allow_html=True)
-    st.write("### 난이도를 선택해주세요.")
-    diff = st.radio("턴 제한 시간", ["쉬움 (20초)", "보통 (10초)", "어려움 (5초)", "지옥 (3초)"], horizontal=True)
+    st.write("### 시간을 선택해주세요.")
+    diff = st.radio("시간", ["쉬움 (120초)", "보통 (90초)", "어려움 (60초)", "지옥 (10초)"], horizontal=True)
+    print ("PC환경에서 실행을 권장합니다.")
     
     if st.button("끝말잇기 시작!"):
         words, _ = load_word_data()
         index = defaultdict(list)
         for w in words: index[w[0]].append(w)
         
-        # 난이도별 기본 초 설정
-        diff_map = {"쉬움 (20초)": 20.0, "보통 (10초)": 10.0, "어려움 (5초)": 5.0, "지옥 (3초)": 3.0}
+        base_times = {"쉬움 (120초)": 120, "보통 (90초)": 90, "어려움 (30초)": 30, "지옥 (10초)": 10}
         first = random.choice(list(words))
-        
         st.session_state.update({
             "words": words, "index": dict(index), "used": {first},
             "last_word": first, "history": [("AI", first)],
-            "chain": 1, 
-            "turn_start_time": time.time(),  # 턴 시작 시점 기록
-            "base_turn_limit": diff_map[diff], # 선택한 난이도 저장
-            "game_over": False, 
+            "chain": 1, "turn_start": time.time(), "input_key": 0,
+            "game_over": False, "base_time": base_times[diff],
             "initialized": True, "winner": None
         })
         st.rerun()
     st.stop()
 
-# ────────────────────────────────────────────────
-# 5. 게임 로직 (타이머 계산) - 초기화 이후에 실행됨
-# ────────────────────────────────────────────────
-if not st.session_state.game_over:
-    # 1. 현재 난이도에 따른 실시간 제한 시간 계산 (3체인당 1초 감소, 최소 1.5초)
-    current_turn_max = max(1.5, st.session_state.base_turn_limit - (st.session_state.chain // 3))
-    
-    # 2. 경과 시간 및 남은 시간 계산
-    turn_elapsed = time.time() - st.session_state.turn_start_time
-    turn_remaining = max(0.0, current_turn_max - turn_elapsed)
-
-    # 3. 시간 초과 시 게임 종료 처리
-    if turn_remaining <= 0:
-        st.session_state.game_over = True
-        st.session_state.winner = "AI"
-        st.rerun()
-
-    # 4. 타이머 UI 출력
-    t_ratio = (turn_remaining / current_turn_max)
-    st.write(f"⏳ 남은 시간: **{turn_remaining:.1f}**초 (현재 제한: {current_turn_max:.1f}초)")
-    st.progress(t_ratio) # 스트림릿 기본 프로그레스 바 사용
 # ────────────────────────────────────────────────
 # 5. 게임 로직 및 화면
 # ────────────────────────────────────────────────
@@ -278,3 +266,4 @@ else:
 if not st.session_state.game_over:
     time.sleep(0.1)
     st.rerun()
+
