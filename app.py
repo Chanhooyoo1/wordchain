@@ -290,40 +290,42 @@ if not st.session_state.get("round_over", False):
             else:
                 st.toast("❌ 잘못되거나 이미 사용된 낱말입니다.")
 
-# 6. 라운드 종료 화면
+# ────────────────────────────────────────────────
+# 6. 라운드 종료 화면 (이 else는 5번 섹션의 if와 짝꿍입니다)
+# ────────────────────────────────────────────────
 else:
+    # 1. 패배 메시지 표시 (맨 왼쪽에서 4칸 또는 0칸, 위쪽 if와 수직 일치)
     st.error(f"💀 패배.. {'시간 초과!' if (bank_rem <= 0 or actual_turn_rem <= 0) else 'AI의 역습!'}")
-    # ... (이하 종료 UI)
     
-    # 다음 라운드가 남아있는 경우
+    # 2. 다음 라운드가 남아있는 경우
     if st.session_state.current_round < st.session_state.total_rounds:
         st.info(f"🕐 3초 후 {st.session_state.current_round + 1}라운드가 자동으로 시작됩니다...")
         
-# [수정된 부분] 패배 후 다음 라운드 준비 시 타이머 리셋 추가
-    new_first = random.choice(list(st.session_state.words))
-    now_reset = time.time() # 현재 시간 획득
-    st.session_state.update({
-        "round_over": False, 
-        "winner": None,
-        "game_start_time": now_reset, # ⭐️ 전체 시간(파란 바) 리셋 추가!
-        "turn_start": now_reset,      # ⭐️ 차례 시간(노란 바) 리셋
-        "used": {new_first}, 
-        "last_word": new_first,
-        "history": [("AI", new_first)], 
-        "chain": 1,
-        "current_round": st.session_state.current_round + 1 
-    })
+        new_first = random.choice(list(st.session_state.words))
+        now_reset = time.time()
         
-    time.sleep(3) # 사용자가 패배 원인을 볼 시간 확보
-    st.rerun()    # 🚀 첫 번째 리런 (자동 실행)
+        st.session_state.update({
+            "round_over": False, 
+            "winner": None,
+            "game_start_time": now_reset, # 전체 시간 리셋
+            "turn_start": now_reset,      # 턴 시간 리셋
+            "used": {new_first}, 
+            "last_word": new_first,
+            "history": [("AI", new_first)], 
+            "chain": 1,
+            "current_round": st.session_state.current_round + 1
+        })
+        
+        time.sleep(3) # 패배 이유를 읽을 시간
+        st.rerun()
 
-    # 모든 라운드가 끝난 경우
+    # 3. 모든 라운드가 끝난 경우
     else:
         st.warning("모든 라운드가 종료되었습니다!")
         if st.button("🔄 처음부터 다시 시작하기", key="restart_btn"):
             for k in list(st.session_state.keys()): 
                 del st.session_state[k]
-            st.rerun() # 🚀 두 번째 리런 (버튼 클릭 시 실행)
+            st.rerun()
 
 # ────────────────────────────────────────────────
 # 7. 실시간 무한 새로고침 (0.1초 단위)
