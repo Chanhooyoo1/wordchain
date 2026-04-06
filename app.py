@@ -122,20 +122,19 @@ if "initialized" not in st.session_state:
 # ────────────────────────────────────────────────
 # --- 4. 실시간 가속 엔진 부분에 추가 ---
 now = time.time()
-total_elapsed = now - st.session_state.game_start_time
-bank_rem = max(0.0, st.session_state.total_limit - total_elapsed)
+# 전체 뱅크 시간 계산
+bank_rem = max(0.0, st.session_state.total_limit - (now - st.session_state.game_start_time))
+bank_ratio = bank_rem / st.session_state.total_limit
 
-# 🚨 이 줄이 누락되었거나 아래쪽에 있어서 에러가 난 것입니다!
-bank_ratio = bank_rem / st.session_state.total_limit 
+# 턴 시간 계산 (가속 공식 적용)
+dynamic_limit = min(15.0, 1.5 + (0.15 * bank_rem ** 0.85))
+turn_elapsed = now - st.session_state.turn_start
+actual_turn_rem = max(0.0, dynamic_limit - turn_elapsed)
+actual_turn_ratio = actual_turn_rem / dynamic_limit
 
-# 그 후 5번 섹션의 UI 코드가 실행되어야 합니다.
-if not st.session_state.get("round_over", False):
-    # ... (중략) ...
-    st.markdown(f"""
-        <div class="bank-container">
-            <div style="width:{bank_ratio*100}%; ..."></div>
-        </div>
-    """, unsafe_allow_html=True)
+# 세션에 현재 값 저장 (나중을 위해)
+st.session_state.bank_rem = bank_rem
+st.session_state.actual_turn_rem = actual_turn_rem
 # ────────────────────────────────────────────────
 # 5. 게임 중 UI 및 입력 처리 (이 if문은 맨 왼쪽 벽에서 4칸 들여쓰기)
 # ────────────────────────────────────────────────
