@@ -126,34 +126,42 @@ if not st.session_state.get("game_over", False):
     c1.metric("나 (User)", st.session_state.user_score)
     c2.metric("상대 (AI)", st.session_state.ai_score)
 
-    # 부드러운 이중 타이머 바 (한 번만 출력)
+    # ────────────────────────────────────────────────
+    # 🔥 [추가] 체인 및 시작 글자 안내 상자
+    # ────────────────────────────────────────────────
+    starts = get_start_chars(st.session_state.last_word[-1])
+    starts_display = ", ".join(starts)
+    
+    st.markdown(f"""
+        <div style="text-align: center; margin-top: 10px; margin-bottom: 15px;">
+            <div style="display: inline-block; background: linear-gradient(135deg, #8A2BE2, #4B0082); color: white; padding: 4px 15px; border-radius: 20px; font-weight: bold; font-size: 1.1rem; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); border: 1px solid #fff;">
+                🔥 {st.session_state.chain} CHAIN
+            </div>
+            <div style="background: #ffffff; border: 2px solid #8A2BE2; border-radius: 12px; padding: 12px; box-shadow: inset 0 0 10px rgba(138,43,226,0.1);">
+                <div style="color: #666; font-size: 0.85rem; margin-bottom: 3px;">다음 시작 글자</div>
+                <div style="color: #FF0055; font-size: 1.5rem; font-weight: 900; letter-spacing: 2px;">{starts_display}</div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # [4. 타이머 바]
     st.markdown(f"""
         <div style="width: 100%; background-color: #333; border-radius: 10px; height: 20px; overflow: hidden; margin-bottom: 5px; border: 1px solid #444;">
-            <div style="
-                width: {turn_ratio * 100}%; 
-                height: 100%; 
-                background: {t_color}; 
-                transition: width 0.11s linear;
-            "></div>
+            <div style="width: {turn_ratio * 100}%; height: 100%; background: {t_color}; transition: width 0.11s linear;"></div>
         </div>
         <div style="width: 100%; background-color: #222; border-radius: 5px; height: 8px; overflow: hidden; border: 1px solid #333;">
-            <div style="
-                width: {bank_ratio * 100}%; 
-                height: 100%; 
-                background: #3a86ff; 
-                transition: width 0.11s linear;
-            "></div>
+            <div style="width: {bank_ratio * 100}%; height: 100%; background: #3a86ff; transition: width 0.11s linear;"></div>
         </div>
         <p style="text-align:right; font-size:12px; color:#888; margin-top:2px;">여유 시간: {st.session_state.total_bank_current:.1f}s</p>
     """, unsafe_allow_html=True)
-    # 2. 🔥 사라진 채팅창 복구 로직 (여기입니다!)
+
+    # [5. 채팅창]
     chat_html = '<div class="chat-wrap">'
     for speaker, text in st.session_state.history:
         side = "ai" if speaker == "AI" else "user"
         bub = "bubble-ai" if speaker == "AI" else "bubble-user"
         chat_html += f'<div class="msg-row-{side}"><div class="{bub}">{text}</div></div>'
     chat_html += '</div>'
-    
     st.markdown(chat_html, unsafe_allow_html=True)
 # ────────────────────────────────────────────────
 # 6. 입력 처리 및 AI 대응
