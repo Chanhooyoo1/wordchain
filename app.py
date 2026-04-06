@@ -208,13 +208,12 @@ chat_html += '</div>'
 st.markdown(chat_html, unsafe_allow_html=True)
 
     # [F] 단어 입력 폼 및 AI 대응 로직
-    with st.form(key="game_input", clear_on_submit=True):
+with st.form(key="game_input", clear_on_submit=True):
         user_input = st.text_input("단어 입력", label_visibility="collapsed", placeholder="단어를 입력해주세요...")
         submit = st.form_submit_button("전송")
         
         if submit and user_input:
             word = user_input.strip()
-            
             if word in st.session_state.words and word not in st.session_state.used and word[0] in starts:
                 # 유저 단어 등록
                 st.session_state.used.add(word)
