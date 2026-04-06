@@ -314,8 +314,8 @@ else:
         "current_round": st.session_state.current_round + 1 
     })
         
-        time.sleep(3) # 사용자가 패배 원인을 볼 시간 확보
-        st.rerun()    # 🚀 첫 번째 리런 (자동 실행)
+    time.sleep(3) # 사용자가 패배 원인을 볼 시간 확보
+    st.rerun()    # 🚀 첫 번째 리런 (자동 실행)
 
     # 모든 라운드가 끝난 경우
     else:
