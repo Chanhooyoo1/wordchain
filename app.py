@@ -102,27 +102,29 @@ if "initialized" not in st.session_state:
         time_choice = st.selectbox("턴 시간 제한 (초)", [120, 90, 60, 30, 10], index=3)
     
     if st.button("게임 입장하기", use_container_width=True):
-        # 💡 고정 여유 시간(파란 바) 매핑 로직
+        # 1. 고정 여유 시간(파란 바) 매핑
         bank_mapping = {120: 15.0, 90: 13.0, 60: 10.0, 30: 6.0, 10: 2.0}
         total_bank = bank_mapping.get(time_choice, 6.0)
         
-        words = load_word_data()
+        # 2. 데이터 로드 (nouns 배열 추출)
+        words_data = load_word_data()
         
-        # 🛡️ 에러 방지용 인덱스 생성 로직
+        # 3. 🛡️ 인덱스 생성 및 필터링 (에러 방지 핵심)
         idx = defaultdict(list)
         valid_words = []
-        for w in words:
-            # 단어가 비어있지 않고 2글자 이상인 경우만 인덱싱 (w[0] 에러 방지)
-            if w and len(w) >= 2:
+        
+        for w in words_data:
+            # 빈 값 체크 + 2글자 이상인 단어만 허용 (w[0] 에러 원천 차단)
+            if w and isinstance(w, str) and len(w) >= 2:
                 idx[w[0]].append(w)
                 valid_words.append(w)
         
-        # 유효한 단어가 없을 경우 예외 처리
+        # 4. 데이터 검증 후 세션 저장
         if not valid_words:
-            st.error("단어 데이터를 불러올 수 없습니다. words.js 파일을 확인해 주세요.")
+            st.error("⚠️ 유효한 단어(2글자 이상)를 찾을 수 없습니다. words.js 형식을 확인해주세요.")
             st.stop()
             
-        first = random.choice(valid_words)
+        first_word = random.choice(valid_words)
         st.session_state.update({
             "initialized": True, 
             "words": frozenset(valid_words), 
@@ -134,16 +136,16 @@ if "initialized" not in st.session_state:
             "total_rounds": total_rounds,
             "user_score": 0, 
             "ai_score": 0,
-            "used": {first}, 
-            "last_word": first, 
-            "history": [("AI", first)],
+            "used": {first_word}, 
+            "last_word": first_word, 
+            "history": [("AI", first_word)],
             "turn_start": time.time(), 
             "game_over": False, 
             "round_over": False
         })
         st.rerun()
 
-    # 버튼을 누르기 전까지 하단 코드 실행 중지 (들여쓰기 주의)
+    # 초기화 전까지 하단 코드 실행 방지
     st.stop()
 # ────────────────────────────────────────────────
 # 5. 게임 로직 (라운드 및 턴 타이머)
