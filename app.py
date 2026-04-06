@@ -121,21 +121,21 @@ if "initialized" not in st.session_state:
 # 4. 실시간 가속 엔진 (120초 시 15초 / 10초 시 3초 버전)
 # ────────────────────────────────────────────────
 now = time.time()
+
 # 1. 전체 뱅크 시간 계산
-# 1. 전체 뱅크 시간 계산
-# .get()을 쓰면 "혹시 없으면 120초를 기본으로 써라"는 뜻이라 에러가 안 납니다.
 total_limit = st.session_state.get("total_limit", 120.0)
 start_time = st.session_state.get("game_start_time", now)
 
 bank_rem = max(0.0, total_limit - (now - start_time))
 bank_ratio = bank_rem / total_limit
 
-# 2. 턴 시간 계산 (가속 공식 대입: 120초 기준 베이스 15초)
-# 공식 해석: 최소 1초 보장 + (전체 남은 시간의 0.85제곱 * 0.235)
-# 이 공식은 120초일 때 15.0초, 60초일 때 8.5초, 10초일 때 2.6초를 뱉어냅니다.
+# 2. 턴 시간 계산 (가속 공식)
 dynamic_limit = min(20.0, 1.0 + (0.235 * (bank_rem ** 0.85)))
 
-turn_elapsed = now - st.session_state.turn_start
+# [수정 포인트 2-1]: turn_start도 안전하게 가져오기!
+turn_start = st.session_state.get("turn_start", now)
+turn_elapsed = now - turn_start
+
 actual_turn_rem = max(0.0, dynamic_limit - turn_elapsed)
 actual_turn_ratio = actual_turn_rem / dynamic_limit
 
