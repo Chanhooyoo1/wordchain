@@ -1,4 +1,3 @@
-
 import random
 import time
 import re
@@ -77,75 +76,34 @@ st.markdown("""
 # ────────────────────────────────────────────────
 # 4. 세션 초기화
 # ────────────────────────────────────────────────
-# ────────────────────────────────────────────────
-# 4. 세션 초기화 (끄투 모드)
-# ────────────────────────────────────────────────
 if "initialized" not in st.session_state:
     st.markdown('<div class="grad-title">끝말잇기</div>', unsafe_allow_html=True)
-    st.write("### 전체 시간을 선택해주세요.")
-
-    diff = st.radio(
-        "시간",
-        ["쉬움 (150초)", "보통 (120초)", "어려움 (90초)", "지옥 (60초)"],
-        horizontal=True
-    )
-
-    print("PC환경에서 실행을 권장합니다.")
-
+    st.write("### 시간을 선택해주세요.")
+    diff = st.radio("시간", ["쉬움 (20초)", "보통 (15초)", "어려움 (10초)", "지옥 (5초)"], horizontal=True)
+    print ("PC환경에서 실행을 권장합니다.")
+    
     if st.button("끝말잇기 시작!"):
         words, _ = load_word_data()
         index = defaultdict(list)
-
-        for w in words:
-            index[w[0]].append(w)
-
-        # 🔥 전체 시간 (끄투 방식)
-        total_times = {
-            "쉬움 (150초)": 150,
-            "보통 (120초)": 120,
-            "어려움 (90초)": 90,
-            "지옥 (60초)": 60
-        }
-
+        for w in words: index[w[0]].append(w)
+        
+        base_times = {"쉬움 (20초)": 20, "보통 (15초)": 15, "어려움 (10초)": 10, "지옥 (5초)": 5}
         first = random.choice(list(words))
-
         st.session_state.update({
-            "words": words,
-            "index": dict(index),
-            "used": {first},
-            "last_word": first,
-            "history": [("AI", first)],
-            "chain": 1,
-            "game_start": time.time(),   # 🔥 핵심
-            "game_over": False,
-            "total_time": total_times[diff],  # 🔥 핵심
-            "initialized": True,
-            "winner": None
+            "words": words, "index": dict(index), "used": {first},
+            "last_word": first, "history": [("AI", first)],
+            "chain": 1, "turn_start": time.time(), "input_key": 0,
+            "game_over": False, "base_time": base_times[diff],
+            "initialized": True, "winner": None
         })
-
         st.rerun()
-
     st.stop()
 
 # ────────────────────────────────────────────────
 # 5. 게임 로직 및 화면
 # ────────────────────────────────────────────────
 base_time = st.session_state.get("base_time", 15)
-chain = st.session_state.chain
-base = st.session_state.base_time
-
-if chain < 5:
-    current_max_time = base
-elif chain < 10:
-    current_max_time = base - 1
-elif chain < 15:
-    current_max_time = base - 2
-elif chain < 20:
-    current_max_time = base - 3
-elif chain < 30:
-    current_max_time = base - 4
-else:
-    current_max_time = base - 5
+current_max_time = st.session_state.base_time - (st.session_state.chain // 5)
 
 current_max_time = max(2.0, current_max_time)
 
@@ -249,12 +207,6 @@ if not st.session_state.game_over:
             st.session_state.history.append(("User", word))
             st.session_state.chain += 1
             st.session_state.last_word = word
-            st.components.v1.html("""
-            <script>
-            const audio = new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_115b9b3c1c.mp3?filename=mouse-click-153941.mp3");
-            audio.play().catch(()=>{});
-            </script>
-            """, height=0)
             
             # 🔥 [랜덤 지연 시간] 체인이 높을수록 대기 시간을 '뺍니다'
             # 시작 대기 2.5초, 체인당 0.1초 차감, 최소 0.2초
