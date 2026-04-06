@@ -36,7 +36,7 @@ def get_start_chars(last_char):
 # ────────────────────────────────────────────────
 # 2. 페이지 설정 및 CSS
 # ────────────────────────────────────────────────
-st.set_page_config(page_title="끄투 온라인 Lite", layout="centered")
+st.set_page_config(page_title="끝말잇기", layout="centered")
 
 st.markdown("""
 <style>
@@ -109,7 +109,8 @@ if "initialized" not in st.session_state:
             "current_round": 1, 
             "total_rounds": total_rounds,
             "game_start_time": now,        # 파란 바(전체 시간) 기준점
-            "total_limit": float(time_choice), 
+            "total_limit": float(time_choice),
+            "turn_limit": 10.0,
             "turn_start": now,             # 노란 바(턴 시간) 기준점
             "used": {first}, 
             "last_word": first, 
@@ -135,12 +136,8 @@ dynamic_limit = 1.0 + (8.5 * bank_ratio)
 
 # (3) 현재 턴 시간 계산 (노란 바)
 turn_elapsed = now - st.session_state.turn_start
-turn_rem = max(0.0, dynamic_limit - turn_elapsed)
-turn_ratio = turn_rem / dynamic_limit
-
-# ────────────────────────────────────────────────
-# 5. 게임 중 UI 및 입력 처리
-# ────────────────────────────────────────────────
+turn_rem = max(0.0, st.session_state.turn_limit - turn_elapsed) 
+turn_ratio = turn_rem / st.session_state.turn_limit
 # ────────────────────────────────────────────────
 # 5. 게임 중 UI 및 입력 처리
 # ────────────────────────────────────────────────
@@ -279,7 +276,7 @@ if not st.session_state.get("round_over", False):
                 else:
                     # 🕒 [핵심] AI의 심리전 지연 (1.5초 ~ 3.5초 랜덤)
                     # 이 시간 동안 공용 타이머(bank_rem)는 계속 깎입니다.
-                    with st.spinner("AI가 까다로운 단어를 고르고 있습니다..."):
+                    with st.spinner("AI가 고민 중입니다..."):
                         delay_time = random.uniform(1.5, 3.5)
                         time.sleep(delay_time)
                     
