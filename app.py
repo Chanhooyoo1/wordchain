@@ -122,8 +122,13 @@ if "initialized" not in st.session_state:
 # ────────────────────────────────────────────────
 now = time.time()
 # 1. 전체 뱅크 시간 계산
-bank_rem = max(0.0, st.session_state.total_limit - (now - st.session_state.game_start_time))
-bank_ratio = bank_rem / st.session_state.total_limit
+# 1. 전체 뱅크 시간 계산
+# .get()을 쓰면 "혹시 없으면 120초를 기본으로 써라"는 뜻이라 에러가 안 납니다.
+total_limit = st.session_state.get("total_limit", 120.0)
+start_time = st.session_state.get("game_start_time", now)
+
+bank_rem = max(0.0, total_limit - (now - start_time))
+bank_ratio = bank_rem / total_limit
 
 # 2. 턴 시간 계산 (가속 공식 대입: 120초 기준 베이스 15초)
 # 공식 해석: 최소 1초 보장 + (전체 남은 시간의 0.85제곱 * 0.235)
