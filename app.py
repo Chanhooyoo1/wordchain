@@ -264,4 +264,37 @@ else:
 # ────────────────────────────────────────────────
 if not st.session_state.get("round_over", False):
     time.sleep(0.1)
+    components.html("""
+<script>
+    const fixUI = () => {
+        const win = window.parent.document;
+        const chat = win.querySelector('.chat-wrap');
+        const input = win.querySelector('input');
+
+        // 1. 채팅창이 있으면 항상 맨 아래로 스크롤
+        if (chat) {
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        // 2. 입력창이 있고, 현재 포커스가 다른 버튼 등에 가있지 않다면 강제 포커스
+        // (사용자가 직접 다른 곳을 클릭한 게 아니라면 무조건 입력창으로 커서 복귀)
+        if (input && win.activeElement.tagName !== 'INPUT' && win.activeElement.tagName !== 'TEXTAREA') {
+            input.focus();
+        }
+    };
+
+    // 화면 변화를 감지하여 실행 (MutationObserver)
+    const observer = new MutationObserver(fixUI);
+    observer.observe(window.parent.document.body, {
+        childList: true,
+        subtree: true
+    });
+
+    // 0.4초마다 반복적으로 보정 (강력한 포커스 유지)
+    setInterval(fixUI, 400);
+    
+    // 즉시 실행
+    fixUI();
+</script>
+""", height=0)
     st.rerun()
