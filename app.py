@@ -283,15 +283,16 @@ with st.form(key="game_input", clear_on_submit=True):
                             ai_next.extend(v)
                     
                     final_msg = f"🔥{ai_word}" if not ai_next else ai_word
-
-                    st.session_state.used.add(ai_word)
-                    st.session_state.history.append(("AI", final_msg))
-                    st.session_state.last_word = ai_word
-                    st.session_state.chain += 1
-                    st.session_state.turn_start = time.time()
-                    st.rerun()
-            else:
-                st.toast("❌ 잘못되거나 이미 사용된 낱말입니다.")
+                    
+            st.session_state.used.add(ai_word)
+            st.session_state.history.append(("AI", final_msg))
+            st.session_state.last_word = ai_word
+            st.session_state.chain += 1
+            st.session_state.turn_start = time.time()
+            st.rerun()  # 여기서 AI 턴 종료 및 화면 갱신
+            
+        else: # ◀ [체크!] 이 else는 유저가 입력한 단어가 틀렸을 때의 else입니다.
+            st.toast("❌ 잘못되거나 이미 사용된 낱말입니다.")
 
 # ────────────────────────────────────────────────
 # 6. 라운드 종료 화면 (이 else는 5번 섹션의 if와 짝꿍입니다)
