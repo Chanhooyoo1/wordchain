@@ -94,20 +94,31 @@ if "initialized" not in st.session_state:
 # ────────────────────────────────────────────────
 # 4. 게임 엔진 (타이머 및 상태 체크)
 # ────────────────────────────────────────────────
-if not st.session_state.round_over:
-    now = time.time()
-    turn_elapsed = now - st.session_state.turn_start
-    turn_rem = max(0.0, st.session_state.turn_limit - turn_elapsed)
+# 1. 색상 및 비율 계산
+t_color = "#FF0055" if turn_rem < 3 else "#f1e05a"
+turn_ratio = turn_rem / st.session_state.turn_limit
+bank_ratio = st.session_state.total_bank_current / st.session_state.total_bank_max
 
-    if turn_rem <= 0:
-        st.session_state.total_bank_current -= 0.1
-        turn_rem = 0.0
-
-    if st.session_state.total_bank_current <= 0:
-        st.session_state.round_over = True
-        st.session_state.winner = "AI"
-        st.session_state.ai_score += 1
-        st.rerun()
+# 2. 부드러운 이중 타이머 바 렌더링
+st.markdown(f"""
+    <div style="width: 100%; background-color: #333; border-radius: 10px; height: 20px; overflow: hidden; margin-bottom: 5px; border: 1px solid #444;">
+        <div style="
+            width: {turn_ratio * 100}%; 
+            height: 100%; 
+            background: {t_color}; 
+            transition: width 0.11s linear; /* 리런 주기(0.1s)보다 살짝 길게 설정하여 끊김 방지 */
+        "></div>
+    </div>
+    <div style="width: 100%; background-color: #222; border-radius: 5px; height: 8px; overflow: hidden; border: 1px solid #333;">
+        <div style="
+            width: {bank_ratio * 100}%; 
+            height: 100%; 
+            background: #3a86ff; 
+            transition: width 0.11s linear;
+        "></div>
+    </div>
+    <p style="text-align:right; font-size:11px; color:#888; margin-top:2px;">여유 시간: {st.session_state.total_bank_current:.1f}s</p>
+""", unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
 # 5. UI 렌더링
