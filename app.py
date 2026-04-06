@@ -110,7 +110,7 @@ if "initialized" not in st.session_state:
             "total_rounds": total_rounds,
             "game_start_time": now,        # 파란 바(전체 시간) 기준점
             "total_limit": float(time_choice),
-            "turn_limit": 10.0,
+            "turn_limit": 15.0,
             "turn_start": now,             # 노란 바(턴 시간) 기준점
             "used": {first}, 
             "last_word": first, 
