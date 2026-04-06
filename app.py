@@ -127,7 +127,7 @@ bank_rem = max(0.0, st.session_state.total_limit - (now - st.session_state.game_
 bank_ratio = bank_rem / st.session_state.total_limit
 
 # 턴 시간 계산 (가속 공식 적용)
-dynamic_limit = min(15.0, 1.5 + (0.15 * bank_rem ** 0.85))
+dynamic_limit = min(15.0, 1.5 + (0.258 * bank_rem ** 0.85))
 turn_elapsed = now - st.session_state.turn_start
 actual_turn_rem = max(0.0, dynamic_limit - turn_elapsed)
 actual_turn_ratio = actual_turn_rem / dynamic_limit
