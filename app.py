@@ -126,29 +126,26 @@ if "initialized" not in st.session_state:
             
         first_word = random.choice(valid_words)
         st.session_state.update({
-            "initialized": True, 
-            "words": frozenset(valid_words), 
+            "initialized": True,
+            "words": words, 
             "index": dict(idx),
-            "chain": 0,
+            "chain": 0,           # 🔥 이 줄이 없어서 에러가 났던 겁니다!
+            "user_score": 0,
+            "ai_score": 0,
+            "current_round": 1,
+            "total_rounds": total_rounds,
             "turn_limit": float(time_choice),
             "total_bank_max": total_bank,
             "total_bank_current": total_bank,
-            "current_round": 1, 
-            "total_rounds": total_rounds,
-            "user_score": 0, 
-            "ai_score": 0,
-            "used": {first_word}, 
-            "last_word": first_word, 
-            "history": [("AI", first_word)],
-            "turn_start": time.time(), 
-            "game_over": False, 
+            "used": {first},
+            "last_word": first,
+            "history": [("AI", first)],
+            "turn_start": time.time(),
+            "game_over": False,
             "round_over": False
         })
         st.rerun()
-
-    # 초기화 전까지 하단 코드 실행 방지
-    st.stop()
-# ────────────────────────────────────────────────
+─────────────────────────────
 # 5. 게임 로직 (라운드 및 턴 타이머)
 # ────────────────────────────────────────────────
 if not st.session_state.game_over:
