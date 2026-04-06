@@ -179,10 +179,25 @@ if not st.session_state.get("game_over", False):
     cols[1].metric("상대 (AI)", st.session_state.ai_score)
 
     # 턴 타이머 바
-    t_color = "#FF0055" if remaining < 3 else "#7000FF"
-    ratio = remaining / st.session_state.turn_limit
-    st.markdown(f"⏱ **나의 남은 시간: {remaining:.1f}초**")
-    st.markdown(f'<div class="timer-container"><div class="timer-bar" style="width:{ratio*100}%; background:{t_color};"></div></div>', unsafe_allow_html=True)
+# 1. 색상 및 비율 계산 (이름을 turn_rem으로 통일)
+    t_color = "#FF0055" if turn_rem < 3 else "#7000FF"
+    turn_ratio = turn_rem / st.session_state.turn_limit
+    
+    # 2. 여유 시간(파란 바) 비율 계산
+    bank_ratio = st.session_state.total_bank_current / st.session_state.total_bank_max
+    
+    # 3. 텍스트 표시
+    st.markdown(f"⏱ **나의 남은 시간: {turn_rem:.1f}초**")
+    
+    # 4. 이중 타이머 바 렌더링 (HTML/CSS)
+    st.markdown(f"""
+        <div class="timer-container" style="background-color: #333; height: 20px; border-radius: 10px; overflow: hidden; margin-bottom: 5px;">
+            <div class="timer-bar" style="width: {turn_ratio * 100}%; height: 100%; background: {t_color}; transition: width 0.1s linear;"></div>
+        </div>
+        <div class="bank-container" style="background-color: #222; height: 10px; border-radius: 5px; overflow: hidden;">
+            <div class="bank-bar" style="width: {bank_ratio * 100}%; height: 100%; background: #0088FF; transition: width 0.1s linear;"></div>
+        </div>
+    """, unsafe_allow_html=True)
 
     # 채팅창
     chat_html = '<div class="chat-wrap">'
