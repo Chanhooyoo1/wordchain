@@ -102,34 +102,28 @@ if "initialized" not in st.session_state:
         time_choice = st.selectbox("턴 시간 제한 (초)", [120, 90, 60, 30, 10], index=3)
     
     if st.button("게임 입장하기", use_container_width=True):
-        # 1. 고정 여유 시간(파란 바) 매핑
         bank_mapping = {120: 15.0, 90: 13.0, 60: 10.0, 30: 6.0, 10: 2.0}
         total_bank = bank_mapping.get(time_choice, 6.0)
         
-        # 2. 데이터 로드 (nouns 배열 추출)
         words_data = load_word_data()
-        
-        # 3. 🛡️ 인덱스 생성 및 필터링 (에러 방지 핵심)
         idx = defaultdict(list)
         valid_words = []
         
         for w in words_data:
-            # 빈 값 체크 + 2글자 이상인 단어만 허용 (w[0] 에러 원천 차단)
             if w and isinstance(w, str) and len(w) >= 2:
                 idx[w[0]].append(w)
                 valid_words.append(w)
         
-        # 4. 데이터 검증 후 세션 저장
         if not valid_words:
-            st.error("⚠️ 유효한 단어(2글자 이상)를 찾을 수 없습니다. words.js 형식을 확인해주세요.")
+            st.error("⚠️ 유효한 단어를 찾을 수 없습니다.")
             st.stop()
             
         first_word = random.choice(valid_words)
         st.session_state.update({
             "initialized": True,
-            "words": words, 
+            "words": frozenset(valid_words), 
             "index": dict(idx),
-            "chain": 0,           # 🔥 이 줄이 없어서 에러가 났던 겁니다!
+            "chain": 0,
             "user_score": 0,
             "ai_score": 0,
             "current_round": 1,
@@ -137,22 +131,24 @@ if "initialized" not in st.session_state:
             "turn_limit": float(time_choice),
             "total_bank_max": total_bank,
             "total_bank_current": total_bank,
-            "used": {first},
-            "last_word": first,
-            "history": [("AI", first)],
+            "used": {first_word},
+            "last_word": first_word,
+            "history": [("AI", first_word)],
             "turn_start": time.time(),
             "game_over": False,
             "round_over": False
         })
         st.rerun()
-#─────────────────────────────────────────────────
-# 5. 게임 로직 (라운드 및 턴 타이머)
+
+    # 🚨 [중요] 여기가 없으면 아래 156라인에서 에러가 납니다!
+    st.stop()
+
+# ────────────────────────────────────────────────
+# 5. 게임 로직 (여기서부터는 변수가 무조건 존재함)
 # ────────────────────────────────────────────────
 if not st.session_state.get("game_over", False):
-    
-    # 시간 초과 시 라운드 종료
-# 1. 개인 턴 시간(노란 바) 계산
     now = time.time()
+    # 이제 안전하게 turn_start를 가져올 수 있습니다.
     turn_elapsed = now - st.session_state.turn_start
 
 # 2. 끄투식 '타임 오버' 로직 (노란 바가 다 닳았을 때)
