@@ -197,7 +197,7 @@ if not st.session_state.get("round_over", False):
     
     if history_list:
         # reversed() 함수로 데이터를 역순으로 바꿉니다.
-        for speaker, text in reversed(history_list):
+        for speaker, text in history_list:
             if speaker == "AI":
                 side = "ai"
                 bub = "bubble-ai"
