@@ -78,13 +78,13 @@ st.markdown("""
 # ────────────────────────────────────────────────
 if "initialized" not in st.session_state:
     # 1. 현재 난이도에 따른 턴 제한 시간 설정 (3체인당 1초 감소, 최소 1.5초)
-base_turn_limit = st.session_state.turn_limit  # 초기 설정값 (예: 10초)
-current_turn_max = max(1.5, base_turn_limit - (st.session_state.chain // 3))
-
-# 2. 경과 시간 및 남은 시간 계산
-now = time.time()
-turn_elapsed = now - st.session_state.turn_start_time
-turn_remaining = max(0.0, current_turn_max - turn_elapsed)
+    base_turn_limit = st.session_state.turn_limit  # 초기 설정값 (예: 10초)
+    current_turn_max = max(1.5, base_turn_limit - (st.session_state.chain // 3))
+    
+    # 2. 경과 시간 및 남은 시간 계산
+    now = time.time()
+    turn_elapsed = now - st.session_state.turn_start_time
+    turn_remaining = max(0.0, current_turn_max - turn_elapsed)
 
 # 3. 시간 초과 시 게임 종료 처리
 if turn_remaining <= 0:
