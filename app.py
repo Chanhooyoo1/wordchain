@@ -116,23 +116,25 @@ if "initialized" not in st.session_state:
             "winner": None
         })
         st.rerun()
-    st.stop() # 게임 시작 전에는 아래 로직 실행 방지
+        st.stop() # 게임 시작 전에는 아래 로직 실행 방지
 # ────────────────────────────────────────────────
 # 4. 실시간 가속 엔진 (120초 시 15초 / 10초 시 3초 버전)
 # ────────────────────────────────────────────────
-# --- 4. 실시간 가속 엔진 부분에 추가 ---
 now = time.time()
-# 전체 뱅크 시간 계산
+# 1. 전체 뱅크 시간 계산
 bank_rem = max(0.0, st.session_state.total_limit - (now - st.session_state.game_start_time))
 bank_ratio = bank_rem / st.session_state.total_limit
 
-# 턴 시간 계산 (가속 공식 적용)
-dynamic_limit = min(15.0, 1.5 + (0.15 * bank_rem ** 0.85))
+# 2. 턴 시간 계산 (가속 공식 대입: 120초 기준 베이스 15초)
+# 공식 해석: 최소 1초 보장 + (전체 남은 시간의 0.85제곱 * 0.235)
+# 이 공식은 120초일 때 15.0초, 60초일 때 8.5초, 10초일 때 2.6초를 뱉어냅니다.
+dynamic_limit = min(20.0, 1.0 + (0.235 * (bank_rem ** 0.85)))
+
 turn_elapsed = now - st.session_state.turn_start
 actual_turn_rem = max(0.0, dynamic_limit - turn_elapsed)
 actual_turn_ratio = actual_turn_rem / dynamic_limit
 
-# 세션에 현재 값 저장 (나중을 위해)
+# 3. 세션에 현재 값 저장
 st.session_state.bank_rem = bank_rem
 st.session_state.actual_turn_rem = actual_turn_rem
 # ────────────────────────────────────────────────
