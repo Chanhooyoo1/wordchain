@@ -1,4 +1,3 @@
-
 import random
 import time
 import re
@@ -192,7 +191,8 @@ if not st.session_state.get("round_over", False):
     # [E] 채팅창 출력 (역순 출력 - 최신 메시지가 위로)
     chat_html = '<div class="chat-wrap">'
     # history는 [(스피커, 텍스트), ...] 구조
-    for speaker, text in st.session_state.history:
+    for speaker, text in reversed(st.session_state.history):
+        side, bub = ("ai", "bubble-ai") if speaker == "AI" else ("user", "bubble-user")
         # 🔥 한방단어는 빨간색 굵게 표시
         style = "color: #FF0000; font-weight: bold; border: 2px solid #FF0000;" if "🔥" in text else ""
         chat_html += f'<div class="msg-row-{side}"><div class="{bub}" style="{style}">{text.replace("🔥","")}</div></div>'
@@ -373,4 +373,3 @@ if not st.session_state.get("round_over", False):
 </script>
 """, height=0)
     st.rerun()
-
