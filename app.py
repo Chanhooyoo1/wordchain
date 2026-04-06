@@ -184,13 +184,13 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-    # [E] 채팅창 (말풍선 UI - 한방단어 빨간색 처리 추가)
-    chat_html = '<div class="chat-wrap">'
+# [E] 채팅창 (여기서부터 들여쓰기가 중요합니다!)
+    # 이 줄의 맨 앞 공백을 모두 지우고, 위쪽 st.markdown과 세로 줄을 맞추세요.
+    chat_html = '<div class="chat-wrap">' 
     for speaker, text in st.session_state.history:
         side = "ai" if speaker == "AI" else "user"
         bub = "bubble-ai" if speaker == "AI" else "bubble-user"
         
-        # 🔥 한방단어(불꽃 마크)가 있으면 빨간색 스타일 적용
         if "🔥" in text:
             display_text = text.replace("🔥", "")
             style = "color: #FF0000; font-weight: bold; border: 2px solid #FF0000;"
