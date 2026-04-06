@@ -313,40 +313,59 @@ if not st.session_state.get("round_over", False):
 # 6. 라운드 종료 화면 (307라인 SyntaxError 해결 지점)
 # (이 else는 위의 'if not st.session_state.get(...)'와 수직 줄이 같아야 함)
 # ────────────────────────────────────────────────
+라운드가 끝난 뒤 사용자가 버튼을 누르지 않아도 3초 뒤에 자동으로 다음 라운드가 시작되도록 로직을 수정해 드릴게요.
+
+이 기능을 구현하려면 time.sleep(3)으로 3초간 결과를 보여준 뒤, 코드가 직접 st.session_state를 다음 라운드 정보로 업데이트하고 st.rerun()을 호출하면 됩니다.
+
+🛠️ [6. 라운드 종료 및 자동 전환] 코드 수정
+이 코드를 기존의 else: (라운드 종료 화면) 블록에 덮어씌우세요.
+
+Python
+# ────────────────────────────────────────────────
+# 6. 라운드 종료 화면 (자동 넘김 버전)
+# ────────────────────────────────────────────────
 else:
-    # 패배 변수 안전장치 (get 사용)
+    # 1. 패배/승리 원인 및 메시지 출력
     b_rem = st.session_state.get("bank_rem", 0)
     t_rem = st.session_state.get("actual_turn_rem", 0)
     
-    # 패배 원인 분석
-    reason = "시간 초과!" if (b_rem <= 0 or t_rem <= 0) else "AI의 역습!"
-    st.error(f"💀 패배.. {reason}")
-    
-    # [스코어 보드]
-    c1, c2 = st.columns(2)
-    c1.metric("최종 나 (User)", st.session_state.user_score)
-    c2.metric("최종 상대 (AI)", st.session_state.ai_score)
-
-    if st.session_state.current_round < st.session_state.total_rounds:
-        # 다음 라운드 진행 버튼
-        if st.button(f"🕐 다음 라운드({st.session_state.current_round + 1}) 시작하기"):
-            new_first = random.choice(list(st.session_state.words))
-            now_reset = time.time()
-            st.session_state.update({
-                "round_over": False, "winner": None,
-                "game_start_time": now_reset, "turn_start": now_reset,      
-                "used": {new_first}, "last_word": new_first,
-                "history": [("AI", new_first)], "chain": 1,
-                "current_round": st.session_state.current_round + 1
-            })
-            st.rerun()
+    if b_rem <= 0 or t_rem <= 0:
+        st.error("⏰ 시간 초과! 라운드가 종료되었습니다.")
     else:
-        # 모든 게임 종료
-        st.warning("🎮 모든 라운드가 종료되었습니다!")
-        # 초기화 버튼
-        if st.button("🔄 게임 초기화 및 처음부터 다시 시작", key="final_restart"):
-            # 세션 모든 키 삭제
-            for k in list(st.session_state.keys()): del st.session_state[k]
+        st.success("🎊 AI가 단어를 찾지 못했습니다! 유저 승리!")
+
+    st.subheader(f"라운드 {st.session_state.current_round} 결과")
+    st.metric("현재 스코어", f"나 {st.session_state.user_score} : {st.session_state.ai_score} AI")
+
+    # 2. 다음 라운드가 남았을 경우 자동 넘김 로직
+    if st.session_state.current_round < st.session_state.total_rounds:
+        st.info("⏳ 3초 뒤 다음 라운드가 자동으로 시작됩니다...")
+        
+        # --- 핵심: 3초 대기 후 세션 초기화 및 재시작 ---
+        time.sleep(3) 
+        
+        new_first = random.choice(list(st.session_state.words))
+        now_reset = time.time()
+        
+        st.session_state.update({
+            "round_over": False,
+            "current_round": st.session_state.current_round + 1,
+            "game_start_time": now_reset, # 전체 시간 리셋
+            "turn_start": now_reset,      # 턴 시간 리셋
+            "used": {new_first},
+            "last_word": new_first,
+            "history": [("AI", new_first)],
+            "chain": 1
+        })
+        st.rerun() # 다음 라운드로 즉시 이동
+        
+    else:
+        # 최종 게임 종료 (여기는 자동 넘김 없이 버튼으로 처리)
+        st.balloons()
+        st.warning("🏁 모든 라운드가 종료되었습니다!")
+        if st.button("🔄 처음부터 다시 시작하기"):
+            for k in list(st.session_state.keys()):
+                del st.session_state[k]
             st.rerun()
 # ────────────────────────────────────────────────
 # 7. 실시간 무한 새로고침 (0.1초 단위)
