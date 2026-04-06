@@ -129,6 +129,7 @@ if "initialized" not in st.session_state:
             "initialized": True, 
             "words": frozenset(valid_words), 
             "index": dict(idx),
+            "chain": 0,
             "turn_limit": float(time_choice),
             "total_bank_max": total_bank,
             "total_bank_current": total_bank,
