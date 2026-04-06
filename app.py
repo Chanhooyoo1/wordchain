@@ -217,6 +217,37 @@ if not st.session_state.game_over and not st.session_state.get("round_over", Fal
             label_visibility="collapsed"
         )
         submit = cols[1].form_submit_button("전송")
+    st.components.v1.html("""
+    <script>
+    const fixUI = () => {
+        const win = window.parent.document;
+    
+        const chat = win.querySelector('.chat-wrap');
+        const input = win.querySelector('input');
+    
+        if (chat) {
+            chat.scrollTop = chat.scrollHeight;
+        }
+    
+        if (input && win.activeElement !== input) {
+            input.focus();
+        }
+    };
+    
+    // DOM 바뀔 때마다 실행
+    const observer = new MutationObserver(fixUI);
+    observer.observe(window.parent.document.body, {
+        childList: true,
+        subtree: true
+    });
+    
+    // 반복 보정
+    setInterval(fixUI, 400);
+    
+    // 초기 실행
+    fixUI();
+    </script>
+    """, height=0)
 
     # 2. 전송 버튼 클릭 시 로직
     if submit and user_input:
