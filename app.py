@@ -146,6 +146,15 @@ if not st.session_state.get("game_over", False):
         </div>
         <p style="text-align:right; font-size:12px; color:#888; margin-top:2px;">여유 시간: {st.session_state.total_bank_current:.1f}s</p>
     """, unsafe_allow_html=True)
+    # 2. 🔥 사라진 채팅창 복구 로직 (여기입니다!)
+    chat_html = '<div class="chat-wrap">'
+    for speaker, text in st.session_state.history:
+        side = "ai" if speaker == "AI" else "user"
+        bub = "bubble-ai" if speaker == "AI" else "bubble-user"
+        chat_html += f'<div class="msg-row-{side}"><div class="{bub}">{text}</div></div>'
+    chat_html += '</div>'
+    
+    st.markdown(chat_html, unsafe_allow_html=True)
 # ────────────────────────────────────────────────
 # 6. 입력 처리 및 AI 대응
 # ────────────────────────────────────────────────
