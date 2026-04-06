@@ -92,77 +92,60 @@ if "initialized" not in st.session_state:
     st.stop()
 
 # ────────────────────────────────────────────────
-# 4. 게임 엔진 (타이머 및 상태 체크)
+# 4. 게임 엔진 및 UI 렌더링 (통합)
 # ────────────────────────────────────────────────
-# 1. 색상 및 비율 계산
-t_color = "#FF0055" if turn_rem < 3 else "#f1e05a"
-turn_ratio = turn_rem / st.session_state.turn_limit
-bank_ratio = st.session_state.total_bank_current / st.session_state.total_bank_max
 
-# 2. 부드러운 이중 타이머 바 렌더링
-st.markdown(f"""
-    <div style="width: 100%; background-color: #333; border-radius: 10px; height: 20px; overflow: hidden; margin-bottom: 5px; border: 1px solid #444;">
-        <div style="
-            width: {turn_ratio * 100}%; 
-            height: 100%; 
-            background: {t_color}; 
-            transition: width 0.11s linear; /* 리런 주기(0.1s)보다 살짝 길게 설정하여 끊김 방지 */
-        "></div>
-    </div>
-    <div style="width: 100%; background-color: #222; border-radius: 5px; height: 8px; overflow: hidden; border: 1px solid #333;">
-        <div style="
-            width: {bank_ratio * 100}%; 
-            height: 100%; 
-            background: #3a86ff; 
-            transition: width 0.11s linear;
-        "></div>
-    </div>
-    <p style="text-align:right; font-size:11px; color:#888; margin-top:2px;">여유 시간: {st.session_state.total_bank_current:.1f}s</p>
-""", unsafe_allow_html=True)
+if not st.session_state.get("game_over", False):
+    # [1. 계산] 모든 변수를 출력보다 먼저 계산합니다.
+    now = time.time()
+    turn_elapsed = now - st.session_state.turn_start
+    turn_rem = max(0.0, st.session_state.turn_limit - turn_elapsed)
 
-# ────────────────────────────────────────────────
-# 5. UI 렌더링
-# ────────────────────────────────────────────────
-# 1. 계산 (이 코드가 반드시 st.markdown 보다 위에 있어야 함)
-turn_ratio = turn_rem / st.session_state.turn_limit
-bank_ratio = st.session_state.total_bank_current / st.session_state.total_bank_max
-t_color = "#FF0055" if turn_rem < 3 else "#f1e05a"
+    # 노란 바 다 닳으면 파란 바 차감
+    if turn_rem <= 0:
+        st.session_state.total_bank_current -= 0.1
+        turn_rem = 0.0
 
-# 2. 정보 표시 (라운드 및 점수)
-st.write(f"**Round {st.session_state.current_round} / {st.session_state.total_rounds}**")
-c1, c2 = st.columns(2)
-c1.metric("나 (User)", st.session_state.user_score)
-c2.metric("상대 (AI)", st.session_state.ai_score)
+    # 파란 바 다 닳으면 패배 처리
+    if st.session_state.total_bank_current <= 0:
+        st.session_state.total_bank_current = 0.0
+        if not st.session_state.get("round_over", False):
+            st.session_state.round_over = True
+            st.session_state.ai_score += 1
+            st.rerun()
 
-# 3. 타이머 바 (CSS transition 추가로 부드러운 움직임 구현)
-st.markdown(f"""
-    <div style="width: 100%; background-color: #333; border-radius: 10px; height: 20px; overflow: hidden; margin-bottom: 5px; border: 1px solid #444;">
-        <div style="
-            width: {turn_ratio * 100}%; 
-            height: 100%; 
-            background: {t_color}; 
-            transition: width 0.11s linear; /* 리런 주기인 0.1초보다 살짝 길게 설정 */
-        "></div>
-    </div>
-    <div style="width: 100%; background-color: #222; border-radius: 5px; height: 8px; overflow: hidden; border: 1px solid #333;">
-        <div style="
-            width: {bank_ratio * 100}%; 
-            height: 100%; 
-            background: #3a86ff; 
-            transition: width 0.11s linear;
-        "></div>
-    </div>
-    <p style="text-align:right; font-size:12px; color:#888; margin-top:2px;">여유 시간: {st.session_state.total_bank_current:.1f}s</p>
-""", unsafe_allow_html=True)
+    # [2. UI 데이터 준비]
+    turn_ratio = turn_rem / st.session_state.turn_limit
+    bank_ratio = st.session_state.total_bank_current / st.session_state.total_bank_max
+    t_color = "#FF0055" if turn_rem < 3 else "#f1e05a"
 
-# 4. 채팅창 (기존 로직 유지)
-chat_html = '<div class="chat-wrap">'
-for speaker, text in st.session_state.history:
-    side = "ai" if speaker == "AI" else "user"
-    chat_html += f'<div class="msg-row-{side}"><div class="bubble-{side}">{text}</div></div>'
-chat_html += '</div>'
-st.markdown(chat_html, unsafe_allow_html=True)
+    # [3. 실제 화면 출력]
+    st.write(f"**Round {st.session_state.current_round} / {st.session_state.total_rounds}**")
+    
+    c1, c2 = st.columns(2)
+    c1.metric("나 (User)", st.session_state.user_score)
+    c2.metric("상대 (AI)", st.session_state.ai_score)
 
+    # 부드러운 이중 타이머 바 (한 번만 출력)
+    st.markdown(f"""
+        <div style="width: 100%; background-color: #333; border-radius: 10px; height: 20px; overflow: hidden; margin-bottom: 5px; border: 1px solid #444;">
+            <div style="
+                width: {turn_ratio * 100}%; 
+                height: 100%; 
+                background: {t_color}; 
+                transition: width 0.11s linear;
+            "></div>
+        </div>
+        <div style="width: 100%; background-color: #222; border-radius: 5px; height: 8px; overflow: hidden; border: 1px solid #333;">
+            <div style="
+                width: {bank_ratio * 100}%; 
+                height: 100%; 
+                background: #3a86ff; 
+                transition: width 0.11s linear;
+            "></div>
+        </div>
+        <p style="text-align:right; font-size:12px; color:#888; margin-top:2px;">여유 시간: {st.session_state.total_bank_current:.1f}s</p>
+    """, unsafe_allow_html=True)
 # ────────────────────────────────────────────────
 # 6. 입력 처리 및 AI 대응
 # ────────────────────────────────────────────────
