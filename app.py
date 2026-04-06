@@ -63,17 +63,23 @@ st.markdown("""
 # ────────────────────────────────────────────────
 # 3. 게임 초기화 (입장 전 화면)
 # ────────────────────────────────────────────────
+# ────────────────────────────────────────────────
+# 3. 게임 초기화 (입장 전 화면)
+# ────────────────────────────────────────────────
 if "initialized" not in st.session_state:
     st.markdown('<div class="grad-title">끄투 온라인 Lite</div>', unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2)
+    # 설정 UI: 3개의 컬럼으로 깔끔하게 배치
+    col1, col2, col3 = st.columns(3)
     with col1: 
         total_rounds = st.number_input("총 라운드 수", 1, 10, 3)
     with col2: 
-        # 전체 판의 운명을 결정하는 시간 (파란 바의 총 길이)
         time_choice = st.selectbox("전체 제한 시간 (초)", [180, 120, 90, 60], index=1)
+    with col3: 
+        difficulty = st.selectbox("AI 난이도", ["쉬움", "보통", "어려움"], index=1)
     
     if st.button("게임 입장하기"):
+        # 단어 데이터 로드
         words_data = load_word_data()
         
         idx = defaultdict(list)
@@ -83,21 +89,28 @@ if "initialized" not in st.session_state:
                 idx[w[0]].append(w)
                 valid_words.append(w)
         
+        # 단어 데이터가 없을 경우를 대비한 방어 코드
+        if not valid_words:
+            valid_words = ["기차", "나무", "나비", "우주", "주스"]
+            for w in valid_words: idx[w[0]].append(w)
+
         # 첫 단어 랜덤 선정
         first = random.choice(valid_words)
         now = time.time()
         
+        # 모든 설정값 세션 상태에 저장
         st.session_state.update({
             "initialized": True, 
+            "difficulty": difficulty,      # 난이도 저장 (쉬움/보통/어려움)
             "words": frozenset(valid_words), 
             "index": dict(idx),
             "user_score": 0, 
             "ai_score": 0, 
             "current_round": 1, 
             "total_rounds": total_rounds,
-            "game_start_time": now,        # 파란 바 기준점
+            "game_start_time": now,        # 파란 바(전체 시간) 기준점
             "total_limit": float(time_choice), 
-            "turn_start": now,             # 노란 바 기준점
+            "turn_start": now,             # 노란 바(턴 시간) 기준점
             "used": {first}, 
             "last_word": first, 
             "history": [("AI", first)],
@@ -106,7 +119,7 @@ if "initialized" not in st.session_state:
             "winner": None
         })
         st.rerun()
-    st.stop() # 게임 시작 전에는 여기서 멈춤
+    st.stop() # 게임 시작 전에는 아래 로직 실행 방지
 
 # ────────────────────────────────────────────────
 # 4. 실시간 가속 엔진 (중요: 에러 방지를 위해 if문 밖에서 계산)
