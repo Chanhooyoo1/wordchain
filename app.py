@@ -63,9 +63,6 @@ st.markdown("""
 # ────────────────────────────────────────────────
 # 3. 게임 초기화 (입장 전 화면)
 # ────────────────────────────────────────────────
-# ────────────────────────────────────────────────
-# 3. 게임 초기화 (입장 전 화면)
-# ────────────────────────────────────────────────
 if "initialized" not in st.session_state:
     st.markdown('<div class="grad-title">끝말잇기</div>', unsafe_allow_html=True)
     
@@ -129,12 +126,11 @@ total_elapsed = now - st.session_state.game_start_time
 bank_rem = max(0.0, st.session_state.total_limit - total_elapsed)
 bank_ratio = bank_rem / st.session_state.total_limit
 
-# 🔥 핵심 수식 변경: 
-# 전체 시간이 10초 남았을 때(bank_rem=10) dynamic_limit이 약 3.0초가 되도록 설정
-# (전체 시간이 넉넉할 땐 10초, 0초에 가까워지면 1.5초까지 줄어듬)
-dynamic_limit = 1.5 + (8.5 * (bank_ratio ** 1.5)) 
+# 보정된 공식: 
+# 전체 120초 기준, 80초 남았을 때 약 7.5초 / 10초 남았을 때 딱 3초가 나옵니다.
+# 지수를 1.5에서 1.1로 낮추어 초반 급락을 방지했습니다.
+dynamic_limit = 1.8 + (8.2 * (bank_ratio ** 1.1)) 
 
-# 현재 턴 경과 시간 및 비율 계산
 turn_elapsed = now - st.session_state.turn_start
 actual_turn_rem = max(0.0, dynamic_limit - turn_elapsed)
 actual_turn_ratio = actual_turn_rem / dynamic_limit
