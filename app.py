@@ -123,23 +123,39 @@ st.markdown(f"""
 # ────────────────────────────────────────────────
 # 5. UI 렌더링
 # ────────────────────────────────────────────────
-st.write(f"Round {st.session_state.current_round} / {st.session_state.total_rounds}")
-c1, c2 = st.columns(2)
-c1.metric("나 (User)", st.session_state.user_score)
-c2.metric("상대 (AI)", st.session_state.ai_score)
-
-# 타이머 바
+# 1. 계산 (이 코드가 반드시 st.markdown 보다 위에 있어야 함)
 turn_ratio = turn_rem / st.session_state.turn_limit
 bank_ratio = st.session_state.total_bank_current / st.session_state.total_bank_max
 t_color = "#FF0055" if turn_rem < 3 else "#f1e05a"
 
+# 2. 정보 표시 (라운드 및 점수)
+st.write(f"**Round {st.session_state.current_round} / {st.session_state.total_rounds}**")
+c1, c2 = st.columns(2)
+c1.metric("나 (User)", st.session_state.user_score)
+c2.metric("상대 (AI)", st.session_state.ai_score)
+
+# 3. 타이머 바 (CSS transition 추가로 부드러운 움직임 구현)
 st.markdown(f"""
-    <div class="timer-container"><div style="width:{turn_ratio*100}%; background:{t_color}; height:100%;"></div></div>
-    <div class="bank-container"><div style="width:{bank_ratio*100}%; background:#3a86ff; height:100%;"></div></div>
-    <p style="text-align:right; font-size:12px;">여유 시간: {st.session_state.total_bank_current:.1f}s</p>
+    <div style="width: 100%; background-color: #333; border-radius: 10px; height: 20px; overflow: hidden; margin-bottom: 5px; border: 1px solid #444;">
+        <div style="
+            width: {turn_ratio * 100}%; 
+            height: 100%; 
+            background: {t_color}; 
+            transition: width 0.11s linear; /* 리런 주기인 0.1초보다 살짝 길게 설정 */
+        "></div>
+    </div>
+    <div style="width: 100%; background-color: #222; border-radius: 5px; height: 8px; overflow: hidden; border: 1px solid #333;">
+        <div style="
+            width: {bank_ratio * 100}%; 
+            height: 100%; 
+            background: #3a86ff; 
+            transition: width 0.11s linear;
+        "></div>
+    </div>
+    <p style="text-align:right; font-size:12px; color:#888; margin-top:2px;">여유 시간: {st.session_state.total_bank_current:.1f}s</p>
 """, unsafe_allow_html=True)
 
-# 채팅창
+# 4. 채팅창 (기존 로직 유지)
 chat_html = '<div class="chat-wrap">'
 for speaker, text in st.session_state.history:
     side = "ai" if speaker == "AI" else "user"
