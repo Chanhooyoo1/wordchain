@@ -75,9 +75,6 @@ if "initialized" not in st.session_state:
         total_rounds = st.number_input("총 라운드 수", 1, 10, 3)
     with col2: 
         time_choice = st.selectbox("전체 제한 시간 (초)", [180, 120, 90, 60], index=1)
-    with col3: 
-        difficulty = st.selectbox("AI 난이도", ["쉬움", "보통", "어려움"], index=1)
-    
     if st.button("게임 입장하기"):
         # 단어 데이터 로드
         words_data = load_word_data()
