@@ -166,8 +166,12 @@ if not st.session_state.get("game_over", False):
 # ────────────────────────────────────────────────
 # 6. 입력 처리 및 AI 대응
 # ────────────────────────────────────────────────
-if not st.session_state.round_over:
+# ────────────────────────────────────────────────
+# 6. 입력 처리 및 AI 대응
+# ────────────────────────────────────────────────
+if not st.session_state.get("round_over", False):
     starts = get_start_chars(st.session_state.last_word[-1])
+    # 상단 박스에서 이미 표시 중이라면 이 caption은 생략 가능
     st.caption(f"시작 글자: {', '.join(starts)}")
     
     with st.form(key="game_input", clear_on_submit=True):
@@ -197,39 +201,43 @@ if not st.session_state.round_over:
                     st.session_state.history.append(("AI", ai_word))
                     st.session_state.last_word = ai_word
                     st.session_state.chain += 1
-                    st.session_state.turn_start = time.time()
+                    st.session_state.turn_start = time.time() # 유저 턴 시작 시간 리셋
                 st.rerun()
             else:
                 st.toast("❌ 잘못된 단어입니다!")
 else:
-    # 결과 화면
-    if st.session_state.winner == "User": st.success("🎉 승리! AI가 단어를 찾지 못했습니다.")
-    else: st.error("💀 패배! 시간이 초과되었습니다.")
+    # ────────────────────────────────────────────────
+    # 결과 화면 및 라운드 초기화 (round_over == True 일 때)
+    # ────────────────────────────────────────────────
+    if st.session_state.get("winner") == "User":
+        st.success("🎉 승리! AI가 단어를 찾지 못했습니다.")
+    else:
+        st.error("💀 패배! 시간이 초과되었습니다.")
     
+    # 다음 라운드 여부 체크
     if st.session_state.current_round < st.session_state.total_rounds:
-# 210라인 주변을 찾아서 아래처럼 간격을 맞춰주세요.
-    if st.button("다음 라운드 시작", key=f"next_rd_{st.session_state.current_round}"):
-        # 🚨 이 아랫줄들이 모두 같은 간격으로 안으로 들어가야 합니다!
-        new_first = random.choice(list(st.session_state.words))
-        
-        st.session_state.update({
-            "current_round": st.session_state.current_round + 1,
-            "round_over": False,
-            "winner": None,
-            "used": {new_first},
-            "last_word": new_first,
-            "history": [("AI", new_first)],
-            "turn_start": time.time(),
-            "chain": 1,
-            "total_bank_current": st.session_state.total_bank_max
-        })
-        st.rerun()
-        else:
-            if st.button("🔄 전체 게임 재시작", key="restart"):
-                for k in list(st.session_state.keys()): del st.session_state[k]
-                st.rerun()
+        if st.button("다음 라운드 시작", key=f"next_rd_{st.session_state.current_round}"):
+            new_first = random.choice(list(st.session_state.words))
+            st.session_state.update({
+                "current_round": st.session_state.current_round + 1,
+                "round_over": False,
+                "winner": None,
+                "used": {new_first},
+                "last_word": new_first,
+                "history": [("AI", new_first)],
+                "turn_start": time.time(),
+                "chain": 1,
+                "total_bank_current": st.session_state.total_bank_max
+            })
+            st.rerun()
+    else:
+        if st.button("🔄 전체 게임 재시작", key="restart"):
+            # 세션 초기화 후 재시작
+            for k in list(st.session_state.keys()):
+                del st.session_state[k]
+            st.rerun()
 
-# 타이머 실시간 갱신
-if not st.session_state.round_over:
+# 타이머 실시간 갱신 (라운드 중일 때만)
+if not st.session_state.get("round_over", False):
     time.sleep(0.1)
     st.rerun()
