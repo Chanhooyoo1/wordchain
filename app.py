@@ -168,8 +168,9 @@ if not st.session_state.get("round_over", False):
 
     # [D] 실시간 이중 타이머 바 (4번 섹션 변수 연동)
     t_color = "#FF0055" if actual_turn_ratio < 0.3 else "#f1e05a"
+    
     st.markdown(f"""
-         <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px; border: 1px solid #444;">
+        <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px; border: 1px solid #444; margin-bottom: 10px;">
             <div style="margin-bottom:8px;">
                 <p style="margin:0; font-size:11px; color:#3a86ff; font-weight:bold;">총 시간 ({bank_rem:.1f}s)</p>
                 <div class="bank-container">
@@ -177,7 +178,7 @@ if not st.session_state.get("round_over", False):
                 </div>
             </div>
             <div>
-                 <p style="margin:0; font-size:12px; color:{t_color}; font-weight:bold;">차례 제한시간 ({actual_turn_rem:.1f}s)</p>
+                <p style="margin:0; font-size:12px; color:{t_color}; font-weight:bold;">차례 제한시간 ({actual_turn_rem:.1f}s)</p>
                 <div class="timer-container">
                     <div style="width:{actual_turn_ratio*100}%; background:{t_color}; height:100%; transition: width 0.1s linear;"></div>
                 </div>
