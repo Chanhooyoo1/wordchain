@@ -60,7 +60,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# 3. 게임 초기화
+# 3. 게임 초기화 (입장 전 화면)
 # ────────────────────────────────────────────────
 if "initialized" not in st.session_state:
     st.markdown('<div class="grad-title">끄투 온라인 Lite</div>', unsafe_allow_html=True)
@@ -69,7 +69,7 @@ if "initialized" not in st.session_state:
     with col1: 
         total_rounds = st.number_input("총 라운드 수", 1, 10, 3)
     with col2: 
-        # 이제 이 선택지는 '전체 게임 시간'을 결정하는 용도로 사용합니다.
+        # 전체 판의 운명을 결정하는 시간 (파란 바의 총 길이)
         time_choice = st.selectbox("전체 제한 시간 (초)", [180, 120, 90, 60], index=1)
     
     if st.button("게임 입장하기"):
@@ -82,7 +82,7 @@ if "initialized" not in st.session_state:
                 idx[w[0]].append(w)
                 valid_words.append(w)
         
-        # 첫 단어 선정
+        # 첫 단어 랜덤 선정
         first = random.choice(valid_words)
         now = time.time()
         
@@ -94,13 +94,9 @@ if "initialized" not in st.session_state:
             "ai_score": 0, 
             "current_round": 1, 
             "total_rounds": total_rounds,
-            
-            # --- 가속 시스템 핵심 변수 ---
-            "game_start_time": now,        # 게임 전체 시작 시각
-            "total_limit": float(time_choice), # 파란 바 전체 시간 (예: 120s)
-            "turn_start": now,             # 현재 턴 시작 시각 (노란 바 리셋용)
-            # ---------------------------
-            
+            "game_start_time": now,        # 파란 바 기준점
+            "total_limit": float(time_choice), 
+            "turn_start": now,             # 노란 바 기준점
             "used": {first}, 
             "last_word": first, 
             "history": [("AI", first)],
@@ -109,49 +105,43 @@ if "initialized" not in st.session_state:
             "winner": None
         })
         st.rerun()
-    st.stop()
+    st.stop() # 게임 시작 전에는 여기서 멈춤
 
 # ────────────────────────────────────────────────
-# 4. 게임 엔진: 실시간 시간 계산 (가속 시스템)
+# 4. 실시간 가속 엔진 (중요: 에러 방지를 위해 if문 밖에서 계산)
 # ────────────────────────────────────────────────
+now = time.time()
+# (1) 전체 게임 시간 계산 (파란 바)
+total_elapsed = now - st.session_state.game_start_time
+bank_rem = max(0.0, st.session_state.total_limit - total_elapsed)
+bank_ratio = bank_rem / st.session_state.total_limit
 
-# 최초 시작 시 게임 시작 절대 시각 저장 (파란 바 기준점)
-if "game_start_time" not in st.session_state:
-    st.session_state.game_start_time = time.time()
-    st.session_state.total_limit = 120.0  # 공용 120초
+# (2) 가속 로직: 전체 시간이 줄수록 턴당 부여 시간이 10초 -> 1.5초로 줄어듦
+dynamic_limit = 1.5 + (8.5 * bank_ratio) 
 
+# (3) 현재 턴 시간 계산 (노란 바)
+turn_elapsed = now - st.session_state.turn_start
+turn_rem = max(0.0, dynamic_limit - turn_elapsed)
+turn_ratio = turn_rem / dynamic_limit
+
+# ────────────────────────────────────────────────
+# 5. 게임 중 UI 및 입력 처리
+# ────────────────────────────────────────────────
 if not st.session_state.get("round_over", False):
-    # (1) 전체 흐른 시간 계산 (파란 바)
-    total_elapsed = time.time() - st.session_state.game_start_time
-    bank_rem = max(0.0, st.session_state.total_limit - total_elapsed)
-    bank_ratio = bank_rem / st.session_state.total_limit
-
-    # (2) 가속 로직: 파란 바가 줄어들수록 턴 제한 시간(dynamic_limit)을 줄임
-    # 처음엔 10초 -> 마지막엔 최소 1.5초
-    dynamic_limit = 1.5 + (8.5 * bank_ratio) 
-    
-    # (3) 현재 턴 소모 시간 계산 (노란 바)
-    turn_elapsed = time.time() - st.session_state.turn_start
-    turn_rem = max(0.0, dynamic_limit - turn_elapsed)
-    turn_ratio = turn_rem / dynamic_limit
-
-    # (4) 패배 판정 (전체 시간 종료 OR 턴 시간 종료)
+    # [시간 초과 체크]
     if bank_rem <= 0 or turn_rem <= 0:
-        if not st.session_state.get("round_over", False):
-            st.session_state.round_over = True
-            st.session_state.ai_score += 1
-            st.session_state.winner = "AI"
-            st.rerun()
+        st.session_state.round_over = True
+        st.session_state.ai_score += 1
+        st.session_state.winner = "AI"
+        st.rerun()
 
-    # (5) UI 데이터 및 화면 출력
-    t_color = "#FF0055" if turn_ratio < 0.3 else "#f1e05a"
-    
+    # 상단 스코어 보드
     st.write(f"**Round {st.session_state.current_round} / {st.session_state.total_rounds}**")
     c1, c2 = st.columns(2)
     c1.metric("나 (User)", st.session_state.user_score)
     c2.metric("상대 (AI)", st.session_state.ai_score)
 
-    # 체인 및 시작 글자 상자
+    # 체인 및 다음 글자 상자
     starts = get_start_chars(st.session_state.last_word[-1])
     starts_display = ", ".join(starts)
     st.markdown(f"""
@@ -166,7 +156,8 @@ if not st.session_state.get("round_over", False):
         </div>
     """, unsafe_allow_html=True)
 
-    # 이중 가속 타이머 바
+    # 실시간 이중 타이머 바
+    t_color = "#FF0055" if turn_ratio < 0.3 else "#f1e05a"
     st.markdown(f"""
         <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px; border: 1px solid #444;">
             <div style="margin-bottom:8px;">
@@ -180,7 +171,7 @@ if not st.session_state.get("round_over", False):
         </div>
     """, unsafe_allow_html=True)
 
-    # 채팅창 출력
+    # 채팅창
     chat_html = '<div class="chat-wrap">'
     for speaker, text in st.session_state.history:
         side = "ai" if speaker == "AI" else "user"
@@ -189,10 +180,7 @@ if not st.session_state.get("round_over", False):
     chat_html += '</div>'
     st.markdown(chat_html, unsafe_allow_html=True)
 
-# ────────────────────────────────────────────────
-# 5. 입력 처리 및 AI 대응
-# ────────────────────────────────────────────────
-if not st.session_state.get("round_over", False):
+    # 단어 입력 폼
     with st.form(key="game_input", clear_on_submit=True):
         user_input = st.text_input("단어 입력", label_visibility="collapsed")
         if st.form_submit_button("전송") and user_input:
@@ -202,6 +190,7 @@ if not st.session_state.get("round_over", False):
                 st.session_state.history.append(("User", word))
                 st.session_state.chain += 1
                 
+                # AI 서칭
                 candidates = []
                 for ch in get_start_chars(word[-1]):
                     if ch in st.session_state.index:
@@ -209,7 +198,7 @@ if not st.session_state.get("round_over", False):
                         candidates.extend(valid)
                 
                 if not candidates:
-                    st.success(f"🎊 AI가 패배했습니다! {st.session_state.current_round}라운드 승리!")
+                    st.success("🎊 AI가 단어를 찾지 못했습니다!")
                     time.sleep(1.5)
                     if st.session_state.current_round < st.session_state.total_rounds:
                         new_first = random.choice(list(st.session_state.words))
@@ -217,8 +206,7 @@ if not st.session_state.get("round_over", False):
                             "current_round": st.session_state.current_round + 1,
                             "user_score": st.session_state.user_score + 1,
                             "used": {new_first}, "last_word": new_first,
-                            "history": [("AI", new_first)], "turn_start": time.time(),
-                            "chain": 1
+                            "history": [("AI", new_first)], "turn_start": time.time(), "chain": 1
                         })
                     else:
                         st.session_state.round_over = True
@@ -231,27 +219,34 @@ if not st.session_state.get("round_over", False):
                     st.session_state.history.append(("AI", ai_word))
                     st.session_state.last_word = ai_word
                     st.session_state.chain += 1
-                    st.session_state.turn_start = time.time() # 노란 바만 리셋
+                    st.session_state.turn_start = time.time() # 턴 시간만 리셋
                     st.rerun()
             else:
                 st.toast("❌ 잘못된 단어입니다!")
+
+# ────────────────────────────────────────────────
+# 6. 라운드 종료 화면 (에러 완벽 방지 구역)
+# ────────────────────────────────────────────────
 else:
-    # 패배 시 화면
-    st.error(f"💀 패배! {'시간 초과' if bank_rem <= 0 or turn_rem <= 0 else '단어를 찾지 못함'}")
+    # 4번 섹션에서 미리 계산된 변수를 사용하므로 에러 없음
+    st.error(f"💀 패배! {'시간 초과' if (bank_rem <= 0 or turn_rem <= 0) else 'AI의 역습'}")
+    
     if st.session_state.current_round < st.session_state.total_rounds:
-        if st.button("다음 라운드 시작"):
+        if st.button("다음 라운드 시작", key="next_rd_btn"):
             new_first = random.choice(list(st.session_state.words))
             st.session_state.update({
-                "current_round": st.session_state.current_round + 1,
                 "round_over": False, "winner": None,
                 "used": {new_first}, "last_word": new_first,
-                "history": [("AI", new_first)], "turn_start": time.time(),
-                "chain": 1
+                "history": [("AI", new_first)], "turn_start": time.time(), "chain": 1
             })
+            st.rerun()
+    else:
+        if st.button("🔄 전체 게임 재시작", key="restart_btn"):
+            for k in list(st.session_state.keys()): del st.session_state[k]
             st.rerun()
 
 # ────────────────────────────────────────────────
-# 6. 실시간 화면 새로고침 (타이머 작동용)
+# 7. 실시간 무한 새로고침 (0.1초 단위)
 # ────────────────────────────────────────────────
 if not st.session_state.get("round_over", False):
     time.sleep(0.1)
