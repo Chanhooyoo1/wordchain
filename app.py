@@ -119,27 +119,30 @@ if "initialized" not in st.session_state:
         st.stop() # 게임 시작 전에는 아래 로직 실행 방지
 # ────────────────────────────────────────────────
 # 4. 실시간 가속 엔진 (120초 시 15초 / 10초 시 3초 버전)
-# ────────────────────────────────────────────────
+# ───────────────────────────────────────────────
 now = time.time()
 
-# 1. 전체 뱅크 시간 계산
+# [A] 필수 변수 안전하게 가져오기 (에러 방지용 .get 사용)
+# 125번 줄 등에서 발생하던 AttributeError를 원천 차단합니다.
 total_limit = st.session_state.get("total_limit", 120.0)
-start_time = st.session_state.get("game_start_time", now)
+game_start_time = st.session_state.get("game_start_time", now)
+turn_start = st.session_state.get("turn_start", now)
 
-bank_rem = max(0.0, total_limit - (now - start_time))
+# 1. 전체 뱅크 시간 계산
+bank_rem = max(0.0, total_limit - (now - game_start_time))
 bank_ratio = bank_rem / total_limit
 
-# 2. 턴 시간 계산 (가속 공식)
+# 2. 턴 시간 계산 (가속 공식 대입: 120초 기준 베이스 15초)
+# 공식 해석: 최소 1초 보장 + (전체 남은 시간의 0.85제곱 * 0.235)
+# 이 공식은 120초일 때 15.0초, 60초일 때 8.5초, 10초일 때 2.6초를 뱉어냅니다.
 dynamic_limit = min(20.0, 1.0 + (0.235 * (bank_rem ** 0.85)))
 
-# [수정 포인트 2-1]: turn_start도 안전하게 가져오기!
-turn_start = st.session_state.get("turn_start", now)
+# 턴 경과 시간 및 남은 시간 계산
 turn_elapsed = now - turn_start
-
 actual_turn_rem = max(0.0, dynamic_limit - turn_elapsed)
 actual_turn_ratio = actual_turn_rem / dynamic_limit
 
-# 3. 세션에 현재 값 저장
+# 3. 세션에 현재 값 저장 (UI 및 판정 로직에서 사용)
 st.session_state.bank_rem = bank_rem
 st.session_state.actual_turn_rem = actual_turn_rem
 # ────────────────────────────────────────────────
