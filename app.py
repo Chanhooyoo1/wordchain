@@ -99,23 +99,33 @@ if "initialized" not in st.session_state:
     with col1:
         total_rounds = st.number_input("총 라운드 수", min_value=1, max_value=10, value=3)
     with col2:
-        # 이전에 정의한 time_choice(selectbox)가 있다면 그것을 사용하고, 
-        # 없다면 여기 slider 변수명을 time_choice로 맞추거나 수정해야 합니다.
         time_choice = st.selectbox("턴 시간 제한 (초)", [120, 90, 60, 30, 10], index=3)
     
     if st.button("게임 입장하기", use_container_width=True):
         # 💡 고정 여유 시간(파란 바) 매핑 로직
         bank_mapping = {120: 15.0, 90: 13.0, 60: 10.0, 30: 6.0, 10: 2.0}
-        total_bank = bank_mapping[time_choice]
+        total_bank = bank_mapping.get(time_choice, 6.0)
         
         words = load_word_data()
-        idx = defaultdict(list)
-        for w in words: idx[w[0]].append(w)
         
-        first = random.choice(list(words))
+        # 🛡️ 에러 방지용 인덱스 생성 로직
+        idx = defaultdict(list)
+        valid_words = []
+        for w in words:
+            # 단어가 비어있지 않고 2글자 이상인 경우만 인덱싱 (w[0] 에러 방지)
+            if w and len(w) >= 2:
+                idx[w[0]].append(w)
+                valid_words.append(w)
+        
+        # 유효한 단어가 없을 경우 예외 처리
+        if not valid_words:
+            st.error("단어 데이터를 불러올 수 없습니다. words.js 파일을 확인해 주세요.")
+            st.stop()
+            
+        first = random.choice(valid_words)
         st.session_state.update({
             "initialized": True, 
-            "words": words, 
+            "words": frozenset(valid_words), 
             "index": dict(idx),
             "turn_limit": float(time_choice),
             "total_bank_max": total_bank,
@@ -133,7 +143,7 @@ if "initialized" not in st.session_state:
         })
         st.rerun()
 
-    # st.stop()은 if st.button과 세로 줄이 맞아야 합니다.
+    # 버튼을 누르기 전까지 하단 코드 실행 중지 (들여쓰기 주의)
     st.stop()
 # ────────────────────────────────────────────────
 # 5. 게임 로직 (라운드 및 턴 타이머)
