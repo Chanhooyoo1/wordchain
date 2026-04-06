@@ -204,27 +204,41 @@ if not st.session_state.game_complete:
 # ────────────────────────────────────────────────
 # 6. 입력 및 처리
 # ────────────────────────────────────────────────
-if not st.session_state.game_over:
+# ────────────────────────────────────────────────
+# 6. 입력 및 처리 (끄투 스타일: 유저 턴 타이머 리셋)
+# ────────────────────────────────────────────────
+if not st.session_state.game_over and not st.session_state.get("round_over", False):
+    # 1. 입력 폼 구성
     with st.form(key="input_form", clear_on_submit=True):
         cols = st.columns([4, 1])
-        user_input = cols[0].text_input("단어 입력", placeholder="단어를 입력하고 엔터를 누르세요", label_visibility="collapsed")
+        user_input = cols[0].text_input(
+            "단어 입력", 
+            placeholder="단어를 입력하고 엔터를 누르세요", 
+            label_visibility="collapsed"
+        )
         submit = cols[1].form_submit_button("전송")
 
+    # 2. 전송 버튼 클릭 시 로직
     if submit and user_input:
         word = user_input.strip()
+        # 두음법칙을 고려한 시작 가능 글자 추출
         possible_starts = get_start_chars(st.session_state.last_word[-1])
         
+        # 단어 검증 (사전에 존재 여부, 중복 여부, 첫 글자 일치 여부)
         if word in st.session_state.words and word not in st.session_state.used and word[0] in possible_starts:
-            # 유저 턴 처리
+            
+            # [유저 턴 처리]
             st.session_state.used.add(word)
             st.session_state.history.append(("User", word))
-            st.session_state.chain += 1
             st.session_state.last_word = word
+            st.session_state.chain += 1
             
-            # AI 고민 로직
+            # [AI 대응 로직]
             with st.spinner("AI가 단어를 찾는 중..."):
+                # 끄투의 긴장감을 위해 AI의 생각 시간(지연) 부여
                 time.sleep(random.uniform(0.5, 1.2))
                 
+                # AI가 대답할 수 있는 후보군 탐색
                 candidates = []
                 for ch in get_start_chars(word[-1]):
                     if ch in st.session_state.index:
@@ -232,32 +246,48 @@ if not st.session_state.game_over:
                         candidates.extend(valid)
                 
                 if not candidates:
-                    st.session_state.game_over = True
+                    # AI가 단어를 못 찾으면 유저의 라운드 승리
+                    st.session_state.round_over = True
                     st.session_state.winner = "User"
+                    st.session_state.user_score = st.session_state.get("user_score", 0) + 1
                 else:
+                    # AI가 단어를 선택
                     ai_word = random.choice(candidates)
                     st.session_state.used.add(ai_word)
                     st.session_state.history.append(("AI", ai_word))
                     st.session_state.last_word = ai_word
                     st.session_state.chain += 1
+                    
+                    # 🔥 중요: AI가 답변을 마친 이 시점에 타이머를 리셋합니다.
+                    # 이제 화면 상단의 타이머 바가 다시 유저의 턴 제한 시간만큼 꽉 차게 됩니다.
                     st.session_state.turn_start = time.time()
+            
             st.rerun()
         else:
-            st.toast("❌ 규칙에 맞지 않거나 이미 사용된 단어입니다!")
+            # 유효하지 않은 단어일 때 안내 (타이머는 계속 흐름)
+            st.toast("❌ 규칙에 어긋나거나 이미 사용된 단어입니다!")
 
-else:
+# 게임 종료 또는 라운드 종료 처리
+elif st.session_state.get("round_over") or st.session_state.game_over:
     if st.session_state.get("winner") == "User":
         st.balloons()
-        st.success(f"🎉 승리! AI가 더 이상 단어를 찾지 못합니다. (기록: {st.session_state.chain})")
+        st.success(f"🎉 승리! AI가 항복했습니다. (현재 체인: {st.session_state.chain})")
     else:
-        st.error(f"💀 패배! 시간 초과 또는 잘못된 단어입니다. (기록: {st.session_state.chain})")
+        st.error(f"💀 패배! 시간이 초과되었습니다. (최종 체인: {st.session_state.chain})")
     
-    if st.button("🔄 게임 다시 시작"):
-        for k in list(st.session_state.keys()):
-            del st.session_state[k]
+    # 다음 라운드 또는 재시작 버튼
+    btn_text = "다음 라운드 시작" if st.session_state.get("current_round", 1) < st.session_state.get("total_rounds", 1) else "🔄 게임 전체 재시작"
+    if st.button(btn_text):
+        if "재시작" in btn_text:
+            for k in list(st.session_state.keys()): del st.session_state[k]
+        else:
+            # 라운드 초기화 로직 (사용한 단어 비우기)
+            st.session_state.used = set()
+            st.session_state.round_over = False
+            # 신규 시작 단어 뽑기 등 추가 가능
         st.rerun()
 
-# 타이머 실시간 갱신용
-if not st.session_state.game_over:
+# 0.1초마다 화면을 갱신하여 타이머 바를 움직이게 함
+if not st.session_state.game_over and not st.session_state.get("round_over", False):
     time.sleep(0.1)
     st.rerun()
