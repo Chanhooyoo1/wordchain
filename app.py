@@ -193,14 +193,15 @@ if not st.session_state.get("round_over", False):
     chat_html += '</div>'
     st.markdown(chat_html, unsafe_allow_html=True)
 
-    # [F] 단어 입력 폼 및 AI 지연 로직
+# [F] 단어 입력 폼 및 AI 지연 로직
     with st.form(key="game_input", clear_on_submit=True):
         user_input = st.text_input("단어 입력", label_visibility="collapsed", placeholder="단어를 입력해주세요...")
         submit = st.form_submit_button("전송")
         
         if submit and user_input:
             word = user_input.strip()
-            # 1. 유효성 검사 (단어장 존재 여부, 중복 여부, 시작글자 일치 여부)
+            
+            # 1. 유효성 검사 (단어장 존재, 중복 체크, 시작 글자 일치)
             if word in st.session_state.words and word not in st.session_state.used and word[0] in starts:
                 
                 # 유저 단어 즉시 등록
@@ -215,81 +216,83 @@ if not st.session_state.get("round_over", False):
                     if ch in st.session_state.index:
                         valid = [w for w in st.session_state.index[ch] if w not in st.session_state.used]
                         candidates.extend(valid)
+
+                # --- AI 기권 이벤트 및 한방단어 체크 ---
+                diff = st.session_state.get("difficulty", "보통")
+                is_killer_word = (len(candidates) == 0) # 유저가 한방단어를 던졌는가?
                 
+                if not is_killer_word: 
+                    # 쉬움 15%, 보통 5% 확률로 단어를 알고 있어도 포기(기권)
+                    give_up_chance = 0.15 if diff == "쉬움" else (0.05 if diff == "보통" else 0.0)
+                    if random.random() < give_up_chance:
+                        candidates = [] 
+                # --------------------------------------
+
+                # [상황 1] AI가 단어를 못 찾음 (유저 승리 / 기권 포함)
                 if not candidates:
-                    # 🎉 AI 패배 (유저 승리)
+                    # 유저의 마지막 단어에 불꽃(🔥) 마크 추가 (채팅창 빨간색 트리거)
+                    st.session_state.history[-1] = ("User", f"🔥{word}")
                     st.success("🎊 AI가 단어를 찾지 못했습니다! 플레이어 승리!")
-                    if "play_confetti" in globals():
-                        play_confetti() # 축하 퍼포먼스
                     time.sleep(2.0)
                     
                     if st.session_state.current_round < st.session_state.total_rounds:
                         # 다음 라운드 준비
-                        new_first = random.choice(list(st.session_state.words))
+                        all_words_list = list(st.session_state.words)
+                        new_first = random.choice(all_words_list)
                         st.session_state.update({
                             "current_round": st.session_state.current_round + 1,
                             "user_score": st.session_state.user_score + 1,
-                            "used": {new_first}, "last_word": new_first,
-                            "history": [("AI", new_first)], "turn_start": time.time(), "chain": 1
+                            "used": {new_first}, 
+                            "last_word": new_first,
+                            "history": [("AI", new_first)], 
+                            "turn_start": time.time(), 
+                            "chain": 1
                         })
+                        st.rerun()
                     else:
-                        # 최종 우승 처리
+                        # 최종 게임 종료
                         st.session_state.round_over = True
                         st.session_state.winner = "User"
                         st.session_state.user_score += 1
-                    st.rerun()
-                    # 🕒 AI 고민 (난이도별로 고민 시간도 차별화 가능)
-                    diff = st.session_state.get("difficulty", "보통")
-                    
-                    with st.spinner(f"AI({diff})가 고민 중입니다..."):
-                        # 어려움일수록 AI가 더 빨리 대답해서 유저를 압박하거나, 
-                        # 일부러 늦게 대답해서 시간을 뺏게 설정 가능
-                        delay = random.uniform(1.5, 3.5) if diff != "어려움" else random.uniform(1.0, 2.5)
+                        st.rerun()
+
+                # [상황 2] AI가 정상적으로 응답함
+                else:
+                    # AI 고민 시간 연출
+                    with st.spinner(f"AI({diff})가 고민 중..."):
+                        delay = random.uniform(1.5, 3.5) if diff != "어려움" else random.uniform(1.0, 2.0)
                         time.sleep(delay)
                     
-                    # --- 난이도별 단어 선택 알고리즘 ---
+                    # 난이도별 AI 단어 선택 알고리즘
                     if diff == "쉬움":
-                        # 쉬움: 가장 흔한 글자로 끝나는 단어나 짧은 단어 위주 (랜덤)
                         ai_word = random.choice(candidates)
-                    
                     elif diff == "보통":
-                        # 보통: 단어 길이가 적당한 것 위주로 선택
                         candidates.sort(key=len)
-                        # 중간 정도 길이의 단어들 중에서 랜덤
                         mid = len(candidates) // 2
                         ai_word = random.choice(candidates[mid:] if len(candidates) > 1 else candidates)
-                    
-                    else: # "어려움"
-                        # 어려움: 유저가 대답하기 힘든 글자(한방 단어 등)로 끝나는 단어 우선
-                        # 여기선 단순하게 '가장 긴 단어' 혹은 '희귀한 끝글자'를 고르도록 설계
-                        # (단어 데이터에 따라 '륨', '녘' 등으로 끝나는 단어를 우선순위에 둠)
-                        ai_word = max(candidates, key=len) 
-                    # --------------------------------
+                    else: # 어려움
+                        ai_word = max(candidates, key=len)
 
+                    # 🚩 AI가 던지는 단어도 한방단어인지 체크 (빨간색 효과용)
+                    ai_next_can = []
+                    for ch in get_start_chars(ai_word[-1]):
+                        if ch in st.session_state.index:
+                            v = [w for w in st.session_state.index[ch] if w not in st.session_state.used and w != ai_word]
+                            ai_next_can.extend(v)
+                    
+                    # AI가 한방단어를 썼다면 🔥 추가
+                    final_ai_msg = f"🔥{ai_word}" if not ai_next_can else ai_word
+
+                    # 데이터 업데이트 및 턴 넘기기
                     st.session_state.used.add(ai_word)
-                    st.session_state.history.append(("AI", ai_word))
+                    st.session_state.history.append(("AI", final_ai_msg))
                     st.session_state.last_word = ai_word
                     st.session_state.chain += 1
                     st.session_state.turn_start = time.time()
                     st.rerun()
-                else:
-                    # 🕒 [핵심] AI의 심리전 지연 (1.5초 ~ 3.5초 랜덤)
-                    # 이 시간 동안 공용 타이머(bank_rem)는 계속 깎입니다.
-                    with st.spinner("AI가 고민 중입니다..."):
-                        delay_time = random.uniform(1.5, 3.5)
-                        time.sleep(delay_time)
-                    
-                    # 지연 후 AI 단어 출력
-                    ai_word = random.choice(candidates)
-                    st.session_state.used.add(ai_word)
-                    st.session_state.history.append(("AI", ai_word))
-                    st.session_state.last_word = ai_word
-                    st.session_state.chain += 1
-                    
-                    # [중요] AI가 답변을 마친 순간에 유저의 노란 바 리셋
-                    st.session_state.turn_start = time.time()
-                    st.rerun()
+            
             else:
+                # 유효하지 않은 단어일 때
                 st.toast("❌ 잘못되거나 이미 사용된 낱말입니다.")
 # ────────────────────────────────────────────────
 # 6. 라운드 종료 화면 (에러 완벽 방지 구역)
