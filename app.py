@@ -132,46 +132,75 @@ turn_ratio = turn_rem / dynamic_limit
 # 5. 게임 중 UI 및 입력 처리
 # ────────────────────────────────────────────────
 if not st.session_state.get("round_over", False):
-    # [A] 패배 판정 (실시간 체크)
+    # [A] 실시간 패배 판정 (공용 타이머 or 턴 타이머 종료 시)
     if bank_rem <= 0 or turn_rem <= 0:
         st.session_state.round_over = True
         st.session_state.ai_score += 1
         st.session_state.winner = "AI"
         st.rerun()
 
-    # [B] 상단 스코어 및 정보 출력 (생략 가능, 기존 코드 유지)
+    # [B] 상단 스코어 보드
     st.write(f"**Round {st.session_state.current_round} / {st.session_state.total_rounds}**")
-    
-    # [C] 체인 및 시작 글자 안내
+    c1, c2 = st.columns(2)
+    c1.metric("나 (User)", st.session_state.user_score)
+    c2.metric("상대 (AI)", st.session_state.ai_score)
+
+    # [C] 체인 및 다음 글자 상자 UI
     starts = get_start_chars(st.session_state.last_word[-1])
     starts_display = ", ".join(starts)
     st.markdown(f"""
-        <div style="text-align: center; margin-bottom: 15px;">
-            <div style="background: #ffffff; border: 2px solid #8A2BE2; border-radius: 12px; padding: 10px;">
-                <div style="color: #666; font-size: 0.8rem;">다음 시작 글자</div>
-                <div style="color: #FF0055; font-size: 1.5rem; font-weight: 900;">{starts_display}</div>
+        <div style="text-align: center; margin-top: 10px; margin-bottom: 15px;">
+            <div style="display: inline-block; background: linear-gradient(135deg, #8A2BE2, #4B0082); color: white; padding: 4px 15px; border-radius: 20px; font-weight: bold; font-size: 1.1rem; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); border: 1px solid #fff;">
+                🔥 {st.session_state.chain} CHAIN
+            </div>
+            <div style="background: #ffffff; border: 2px solid #8A2BE2; border-radius: 12px; padding: 12px; box-shadow: inset 0 0 10px rgba(138,43,226,0.1);">
+                <div style="color: #666; font-size: 0.85rem; margin-bottom: 3px;">다음 시작 글자</div>
+                <div style="color: #FF0055; font-size: 1.5rem; font-weight: 900; letter-spacing: 2px;">{starts_display}</div>
             </div>
         </div>
     """, unsafe_allow_html=True)
 
-    # [D] 이중 타이머 바 (기존 UI 유지)
-    # ... (타이머 바 HTML 코드) ...
+    # [D] 실시간 이중 타이머 바 (가속 엔진 연동)
+    t_color = "#FF0055" if turn_ratio < 0.3 else "#f1e05a"
+    st.markdown(f"""
+        <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px; border: 1px solid #444;">
+            <div style="margin-bottom:8px;">
+                <p style="margin:0; font-size:11px; color:#3a86ff; font-weight:bold;">TOTAL TIME ({bank_rem:.1f}s)</p>
+                <div class="bank-container"><div style="width:{bank_ratio*100}%; background:#3a86ff; height:100%; transition: width 0.1s linear;"></div></div>
+            </div>
+            <div>
+                <p style="margin:0; font-size:12px; color:{t_color}; font-weight:bold;">TURN LIMIT ({turn_rem:.1f}s)</p>
+                <div class="timer-container"><div style="width:{turn_ratio*100}%; background:{t_color}; height:100%; transition: width 0.1s linear;"></div></div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
-    # [E] 단어 입력 폼 및 AI 지연 로직
+    # [E] 채팅창 (말풍선 UI)
+    chat_html = '<div class="chat-wrap">'
+    for speaker, text in st.session_state.history:
+        side = "ai" if speaker == "AI" else "user"
+        bub = "bubble-ai" if speaker == "AI" else "bubble-user"
+        chat_html += f'<div class="msg-row-{side}"><div class="{bub}">{text}</div></div>'
+    chat_html += '</div>'
+    st.markdown(chat_html, unsafe_allow_html=True)
+
+    # [F] 단어 입력 폼 및 AI 지연 로직
     with st.form(key="game_input", clear_on_submit=True):
-        user_input = st.text_input("단어 입력", label_visibility="collapsed", placeholder="AI를 압박하세요!")
+        user_input = st.text_input("단어 입력", label_visibility="collapsed", placeholder="빨리 입력하지 않으면 시간이 부족합니다!")
         submit = st.form_submit_button("전송")
         
         if submit and user_input:
             word = user_input.strip()
+            # 1. 유효성 검사 (단어장 존재 여부, 중복 여부, 시작글자 일치 여부)
             if word in st.session_state.words and word not in st.session_state.used and word[0] in starts:
-                # 1. 유저 단어 즉시 반영
+                
+                # 유저 단어 즉시 등록
                 st.session_state.used.add(word)
                 st.session_state.history.append(("User", word))
                 st.session_state.chain += 1
                 st.session_state.last_word = word
                 
-                # 2. AI 대응 후보 찾기
+                # 2. AI 대응 서칭
                 candidates = []
                 for ch in get_start_chars(word[-1]):
                     if ch in st.session_state.index:
@@ -179,33 +208,46 @@ if not st.session_state.get("round_over", False):
                         candidates.extend(valid)
                 
                 if not candidates:
-                    # 🎉 유저 승리 퍼포먼스
-                    st.success("🎊 AI가 대답을 못합니다! 라운드 승리!")
-                    if "play_confetti" in globals(): play_confetti()
+                    # 🎉 AI 패배 (유저 승리)
+                    st.success("🎊 AI가 단어를 찾지 못했습니다! 유저 승리!")
+                    if "play_confetti" in globals():
+                        play_confetti() # 축하 퍼포먼스
                     time.sleep(2.0)
-                    # (라운드 업데이트 로직 생략, 기존 코드 유지)
+                    
+                    if st.session_state.current_round < st.session_state.total_rounds:
+                        # 다음 라운드 준비
+                        new_first = random.choice(list(st.session_state.words))
+                        st.session_state.update({
+                            "current_round": st.session_state.current_round + 1,
+                            "user_score": st.session_state.user_score + 1,
+                            "used": {new_first}, "last_word": new_first,
+                            "history": [("AI", new_first)], "turn_start": time.time(), "chain": 1
+                        })
+                    else:
+                        # 최종 우승 처리
+                        st.session_state.round_over = True
+                        st.session_state.winner = "User"
+                        st.session_state.user_score += 1
                     st.rerun()
                 else:
-                    # 🕒 [핵심] AI의 긴 지연 시간 (1.5초 ~ 3.5초 랜덤)
-                    # 이 시간 동안 화면은 Spinner를 보여주며, 전체 타이머(bank_rem)는 계속 깎입니다.
+                    # 🕒 [핵심] AI의 심리전 지연 (1.5초 ~ 3.5초 랜덤)
+                    # 이 시간 동안 공용 타이머(bank_rem)는 계속 깎입니다.
+                    with st.spinner("AI가 까다로운 단어를 고르고 있습니다..."):
+                        delay_time = random.uniform(1.5, 3.5)
+                        time.sleep(delay_time)
+                    
+                    # 지연 후 AI 단어 출력
                     ai_word = random.choice(candidates)
-                    
-                    with st.spinner("AI가 단어를 심사숙고 중입니다..."):
-                        # 지연 시간을 길게 설정 (유저의 공용 시간을 갉아먹음)
-                        delay = random.uniform(1.5, 3.5)
-                        time.sleep(delay)
-                    
-                    # 3. AI 단어 등록 및 턴 교대
                     st.session_state.used.add(ai_word)
                     st.session_state.history.append(("AI", ai_word))
                     st.session_state.last_word = ai_word
                     st.session_state.chain += 1
                     
-                    # AI가 답을 한 시점부터 유저의 턴 시간(노란 바) 리셋
+                    # [중요] AI가 답변을 마친 순간에 유저의 노란 바 리셋
                     st.session_state.turn_start = time.time()
                     st.rerun()
             else:
-                st.toast("❌ 규칙에 맞지 않는 단어입니다!")
+                st.toast("❌ 잘못된 단어입니다! 다시 생각해보세요.")
 # ────────────────────────────────────────────────
 # 6. 라운드 종료 화면 (에러 완벽 방지 구역)
 # ────────────────────────────────────────────────
