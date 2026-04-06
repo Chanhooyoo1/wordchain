@@ -67,7 +67,7 @@ st.markdown("""
 # 3. 게임 초기화 (입장 전 화면)
 # ────────────────────────────────────────────────
 if "initialized" not in st.session_state:
-    st.markdown('<div class="grad-title">끄투 온라인 Lite</div>', unsafe_allow_html=True)
+    st.markdown('<div class="grad-title">끝말잇기</div>', unsafe_allow_html=True)
     
     # 설정 UI: 3개의 컬럼으로 깔끔하게 배치
     col1, col2, col3 = st.columns(3)
