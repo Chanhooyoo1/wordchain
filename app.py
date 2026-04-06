@@ -296,21 +296,29 @@ with st.form(key="game_input", clear_on_submit=True):
 # ────────────────────────────────────────────────
 # 6. 라운드 종료 화면 (이 else는 5번 섹션의 if와 짝꿍입니다)
 # ────────────────────────────────────────────────
+# ────────────────────────────────────────────────
+# 6. 라운드 종료 화면 
+# (중요: 이 else는 'if not round_over:'와 수직 선상이 같아야 합니다)
+# ────────────────────────────────────────────────
 else:
-    # 1. 패배 메시지 표시 (f-string 내 조건부 텍스트 포함)
-    # bank_rem과 actual_turn_rem은 위쪽 가속 엔진 섹션에서 계산된 변수여야 합니다.
-    reason = "시간 초과!" if (bank_rem <= 0 or actual_turn_rem <= 0) else "AI의 역습!"
+    # [체크 1] 변수 안전장치: bank_rem 등이 정의되지 않았을 경우를 대비합니다.
+    # 만약 위쪽 if문 안에서만 변수가 선언되었다면 여기서 NameError가 날 수 있습니다.
+    b_rem = st.session_state.get("bank_rem", 0) # 세션에서 가져오거나 0으로 기본값
+    t_rem = st.session_state.get("actual_turn_rem", 0) 
+    
+    # 1. 패배 메시지 표시
+    reason = "시간 초과!" if (b_rem <= 0 or t_rem <= 0) else "AI의 역습!"
     st.error(f"💀 패배.. {reason}")
     
     # 2. 다음 라운드가 남아있는 경우
     if st.session_state.current_round < st.session_state.total_rounds:
         st.info(f"🕐 3초 후 {st.session_state.current_round + 1}라운드가 자동으로 시작됩니다...")
         
-        # 새 라운드 준비 로직
+        # 새 라운드 단어 세팅 (세션에 words가 리스트/셋 형태인지 확인)
         new_first = random.choice(list(st.session_state.words))
         now_reset = time.time()
         
-        # [중요] st.session_state.update({...}) 괄호 짝을 정확히 맞췄습니다.
+        # [체크 2] 괄호 짝꿍과 세션 업데이트
         st.session_state.update({
             "round_over": False, 
             "winner": None,
@@ -323,14 +331,14 @@ else:
             "current_round": st.session_state.current_round + 1
         })
         
-        time.sleep(3) # 패배 이유를 읽을 시간 확보
+        time.sleep(3) # 메시지를 읽을 시간
         st.rerun()
 
     # 3. 모든 라운드가 끝난 경우
     else:
         st.warning("모든 라운드가 종료되었습니다!")
-        if st.button("🔄 처음부터 다시 시작하기", key="restart_btn"):
-            # 모든 세션 초기화
+        # [체크 3] 버튼 키값 중복 방지 (이미 restart_btn이 다른 곳에 있다면 바꿔야 함)
+        if st.button("🔄 처음부터 다시 시작하기", key="final_restart_btn"):
             for k in list(st.session_state.keys()): 
                 del st.session_state[k]
             st.rerun()
