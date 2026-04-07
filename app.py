@@ -256,8 +256,8 @@ if not st.session_state.get("round_over", False):
     # [F] 단어 입력 폼 및 AI 대응 로직
     # clear_on_submit=True로 전송 후 입력창 비움
     with st.form(key="game_input", clear_on_submit=True):
-    user_input = st.text_input("단어 입력", label_visibility="collapsed", placeholder="단어를 입력해주세요...")
-    submit = st.form_submit_button("전송")
+        user_input = st.text_input("단어 입력", label_visibility="collapsed", placeholder="단어를 입력해주세요...")
+        submit = st.form_submit_button("전송")
     
     if submit and user_input:
         word = user_input.strip()
