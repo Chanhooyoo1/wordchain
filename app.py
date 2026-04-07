@@ -285,7 +285,7 @@ for ch in get_start_chars(word[-1]):
         valid = [w for w in st.session_state.index[ch] if w not in st.session_state.used]
         candidates.extend(valid)
                 # --- 3. AI 결과 판정 및 등록 ---
-                diff = st.session_state.get("difficulty", "보통")
+        diff = st.session_state.get("difficulty", "보통")
                 
                 # 난이도별 기권 확률 (쉬움 15%, 보통 5%)
                 give_up_chance = 0.15 if diff == "쉬움" else 0.05 if diff == "보통" else 0
