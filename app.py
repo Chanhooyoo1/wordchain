@@ -351,8 +351,8 @@ else:
     st.session_state.turn_start = time.time()
     st.rerun()
             
- else:
-                # 유효하지 않은 단어
+else:
+    # 유효하지 않은 단어
     st.toast("❌ 잘못되거나 이미 사용된 단어입니다!")
 
 # ────────────────────────────────────────────────
