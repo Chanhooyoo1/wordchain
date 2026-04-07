@@ -389,7 +389,7 @@ else:
                 "stage": "stage1"
             })
             st.rerun()
-    else:
+else:
         st.warning("🎮 모든 라운드가 종료되었습니다!")
         if st.button("🔄 게임 초기화 및 처음부터 다시 시작", key="final_restart"):
             for k in list(st.session_state.keys()):
