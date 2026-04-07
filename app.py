@@ -357,77 +357,79 @@ with st.form(key="game_input", clear_on_submit=True):
 # 6. 라운드 종료 화면 (307라인 SyntaxError 해결 지점)
 # (이 else는 위의 'if not st.session_state.get(...)'와 수직 줄이 같아야 함)
 # ────────────────────────────────────────────────
+# ────────────────────────────────────────────────
+# 6. 라운드 종료 화면
+# ────────────────────────────────────────────────
 else:
-    # 패배 변수 안전장치 (get 사용)
+    # 패배 변수
     b_rem = st.session_state.get("bank_rem", 0)
     t_rem = st.session_state.get("actual_turn_rem", 0)
-    
-    # 패배 원인 분석
+
+    # 패배 원인
     reason = "시간 초과!" if (b_rem <= 0 or t_rem <= 0) else "AI의 역습!"
     st.error(f"💀 패배.. {reason}")
-    
-    # [스코어 보드]
+
+    # 스코어
     c1, c2 = st.columns(2)
     c1.metric("최종 나 (User)", st.session_state.user_score)
     c2.metric("최종 상대 (AI)", st.session_state.ai_score)
 
+    # 다음 라운드 or 종료
     if st.session_state.current_round < st.session_state.total_rounds:
-        # 다음 라운드 진행 버튼
         if st.button(f"🕐 다음 라운드({st.session_state.current_round + 1}) 시작하기"):
             new_first = random.choice(list(st.session_state.words))
             now_reset = time.time()
+
             st.session_state.update({
-                "round_over": False, "winner": None,
-                "game_start_time": now_reset, "turn_start": now_reset,      
-                "used": {new_first}, "last_word": new_first,
-                "history": [("AI", new_first)], "chain": 1,
-                "current_round": st.session_state.current_round + 1
+                "round_over": False,
+                "winner": None,
+                "game_start_time": now_reset,
+                "turn_start": now_reset,
+                "used": {new_first},
+                "last_word": new_first,
+                "history": [("AI", new_first)],
+                "chain": 1,
+                "current_round": st.session_state.current_round + 1,
+                "stage": "stage1"
             })
             st.rerun()
     else:
-        # 모든 게임 종료
         st.warning("🎮 모든 라운드가 종료되었습니다!")
-        # 초기화 버튼
         if st.button("🔄 게임 초기화 및 처음부터 다시 시작", key="final_restart"):
-            # 세션 모든 키 삭제
-            for k in list(st.session_state.keys()): del st.session_state[k]
+            for k in list(st.session_state.keys()):
+                del st.session_state[k]
             st.rerun()
+
+
 # ────────────────────────────────────────────────
-# 7. 실시간 무한 새로고침 (0.1초 단위)
+# 7. 실시간 자동 새로고침
 # ────────────────────────────────────────────────
 if not st.session_state.get("round_over", False):
     time.sleep(0.1)
+
     components.html("""
 <script>
-    const fixUI = () => {
-        const win = window.parent.document;
-        const chat = win.querySelector('.chat-wrap');
-        const input = win.querySelector('input');
+const fixUI = () => {
+    const win = window.parent.document;
+    const chat = win.querySelector('.chat-wrap');
+    const input = win.querySelector('input');
 
-        // 1. 채팅창이 있으면 항상 맨 아래로 스크롤
-        if (chat) {
-            chat.scrollTop = chat.scrollHeight;
-        }
+    if (chat) chat.scrollTop = chat.scrollHeight;
 
-        // 2. 입력창이 있고, 현재 포커스가 다른 버튼 등에 가있지 않다면 강제 포커스
-        // (사용자가 직접 다른 곳을 클릭한 게 아니라면 무조건 입력창으로 커서 복귀)
-        if (input && win.activeElement.tagName !== 'INPUT' && win.activeElement.tagName !== 'TEXTAREA') {
-            input.focus();
-        }
-    };
+    if (input && win.activeElement.tagName !== 'INPUT' && win.activeElement.tagName !== 'TEXTAREA') {
+        input.focus();
+    }
+};
 
-    // 화면 변화를 감지하여 실행 (MutationObserver)
-    const observer = new MutationObserver(fixUI);
-    observer.observe(window.parent.document.body, {
-        childList: true,
-        subtree: true
-    });
+const observer = new MutationObserver(fixUI);
+observer.observe(window.parent.document.body, {
+    childList: true,
+    subtree: true
+});
 
-    // 0.4초마다 반복적으로 보정 (강력한 포커스 유지)
-    setInterval(fixUI, 400);
-    
-    // 즉시 실행
-    fixUI();
+setInterval(fixUI, 400);
+fixUI();
 </script>
 """, height=0)
+
     st.rerun()
