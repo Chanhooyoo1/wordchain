@@ -370,32 +370,34 @@ else:
     c1.metric("최종 나 (User)", st.session_state.user_score)
     c2.metric("최종 상대 (AI)", st.session_state.ai_score)
 
-    # 다음 라운드 or 종료
-    if st.session_state.current_round < st.session_state.total_rounds:
-        if st.button(f"🕐 다음 라운드({st.session_state.current_round + 1}) 시작하기"):
-            new_first = random.choice(list(st.session_state.words))
-            now_reset = time.time()
+# 다음 라운드 or 종료
+if st.session_state.current_round < st.session_state.total_rounds:
+    if st.button(f"🕐 다음 라운드({st.session_state.current_round + 1}) 시작하기"):
+        new_first = random.choice(list(st.session_state.words))
+        now_reset = time.time()
 
-            st.session_state.update({
-                "round_over": False,
-                "winner": None,
-                "game_start_time": now_reset,
-                "turn_start": now_reset,
-                "used": {new_first},
-                "last_word": new_first,
-                "history": [("AI", new_first)],
-                "chain": 1,
-                "current_round": st.session_state.current_round + 1,
-                "stage": "stage1"
-            })
-            st.rerun()
+        st.session_state.update({
+            "round_over": False,
+            "winner": None,
+            "game_start_time": now_reset,
+            "turn_start": now_reset,
+            "used": {new_first},
+            "last_word": new_first,
+            "history": [("AI", new_first)],
+            "chain": 1,
+            "current_round": st.session_state.current_round + 1,
+            "stage": "stage1"
+        })
+        st.rerun()
+
 else:
-        st.warning("🎮 모든 라운드가 종료되었습니다!")
-        if st.button("🔄 게임 초기화 및 처음부터 다시 시작", key="final_restart"):
-            for k in list(st.session_state.keys()):
-                del st.session_state[k]
-            st.rerun()
+    # ✅ 게임 완전 종료
+    st.warning("🎮 모든 라운드가 종료되었습니다!")
 
+    if st.button("🔄 게임 초기화 및 처음부터 다시 시작", key="final_restart"):
+        for k in list(st.session_state.keys()):
+            del st.session_state[k]
+        st.rerun()
 
 # ────────────────────────────────────────────────
 # 7. 실시간 자동 새로고침
