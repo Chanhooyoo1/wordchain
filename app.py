@@ -143,6 +143,7 @@ if not st.session_state.get("round_over", False):
     if bank_rem <= 0 or actual_turn_rem <= 0:
         st.session_state.round_over = True
         st.session_state.ai_score += 1
+        st.session_state.end_reason = "timeout"  # 🔥 추가
         st.session_state.winner = "AI"
         st.rerun()
 
