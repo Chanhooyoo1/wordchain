@@ -118,21 +118,59 @@ if "initialized" not in st.session_state:
         st.rerun()
     st.stop() # 게임 시작 전에는 아래 로직 실행 방지
 # ────────────────────────────────────────────────
-# 4. 실시간 가속 엔진 (120초 시 15초 / 10초 시 3초 버전)
+# 4. 실시간 가속 엔진 (체인 기반 단계형 + BGM)
 # ────────────────────────────────────────────────
-# --- 4. 실시간 가속 엔진 부분에 추가 ---
+def get_turn_limit(chain):
+    if chain >= 28:
+        return 2.0, "stage5"
+    elif chain >= 20:
+        return 5.0, "stage4"
+    elif chain >= 8:
+        return 8.0, "stage3"
+    elif chain >= 5:
+        return 11.0, "stage2"
+    else:
+        return 15.0, "stage1"
+
 now = time.time()
-# 전체 뱅크 시간 계산
+
+# 전체 뱅크 시간 계산 (이건 그대로 유지)
 bank_rem = max(0.0, st.session_state.total_limit - (now - st.session_state.game_start_time))
 bank_ratio = bank_rem / st.session_state.total_limit
 
-# 턴 시간 계산 (가속 공식 적용)
-dynamic_limit = min(15.0, 1.5 + (0.258 * bank_rem ** 0.85))
+# 🔥 체인 기반 턴 시간 계산
+dynamic_limit, current_stage = get_turn_limit(st.session_state.chain)
+
 turn_elapsed = now - st.session_state.turn_start
 actual_turn_rem = max(0.0, dynamic_limit - turn_elapsed)
 actual_turn_ratio = actual_turn_rem / dynamic_limit
 
-# 세션에 현재 값 저장 (나중을 위해)
+# 🔥 스테이지 변경 감지 + BGM 실행
+if "stage" not in st.session_state:
+    st.session_state.stage = current_stage
+
+if st.session_state.stage != current_stage:
+    st.session_state.stage = current_stage
+
+    bgm_map = {
+        "stage1": "bgm1.mp3",
+        "stage2": "bgm2.mp3",
+        "stage3": "bgm3.mp3",
+        "stage4": "bgm4.mp3",
+        "stage5": "bgm5.mp3",
+    }
+
+    bgm_file = bgm_map.get(current_stage)
+
+    if bgm_file:
+        try:
+            with open(bgm_file, "rb") as f:
+                audio_bytes = f.read()
+            st.audio(audio_bytes, format="audio/mp3", autoplay=True)
+        except:
+            pass
+
+# 세션에 현재 값 저장
 st.session_state.bank_rem = bank_rem
 st.session_state.actual_turn_rem = actual_turn_rem
 # ────────────────────────────────────────────────
@@ -218,28 +256,34 @@ if not st.session_state.get("round_over", False):
     # [F] 단어 입력 폼 및 AI 대응 로직
     # clear_on_submit=True로 전송 후 입력창 비움
     with st.form(key="game_input", clear_on_submit=True):
-        user_input = st.text_input("단어 입력", label_visibility="collapsed", placeholder="단어를 입력해주세요...")
-        submit = st.form_submit_button("전송")
-        
-        if submit and user_input:
-            word = user_input.strip()
-            # 단어 유효성 검사 (사전에 존재, 미사용, 시작 글자 일치)
-            if word in st.session_state.words and word not in st.session_state.used and word[0] in starts:
-                
-                # --- 1. 유저 정답 처리 ---
-                st.session_state.used.add(word)
-                st.session_state.history.append(("User", word))
-                st.session_state.chain += 1
-                st.session_state.last_word = word
+    user_input = st.text_input("단어 입력", label_visibility="collapsed", placeholder="단어를 입력해주세요...")
+    submit = st.form_submit_button("전송")
+    
+    if submit and user_input:
+        word = user_input.strip()
+        # 단어 유효성 검사
+        if word in st.session_state.words and word not in st.session_state.used and word[0] in starts:
+            
+            # 유저 정답 처리
+            st.session_state.used.add(word)
+            st.session_state.history.append(("User", word))
+            st.session_state.chain += 1
+            st.session_state.last_word = word
+            
+            # 🔥 효과음
+            try:
+                with open("input.mp3", "rb") as f:
+                    st.audio(f.read(), format="audio/mp3", autoplay=True)
+            except:
+                pass
                 
                 # --- 2. AI 대응 단어 서칭 ---
-                candidates = []
-                for ch in get_start_chars(word[-1]):
-                    if ch in st.session_state.index:
-                        # 아직 안 쓴 단어만 필터링
-                        valid = [w for w in st.session_state.index[ch] if w not in st.session_state.used]
-                        candidates.extend(valid)
-
+candidates = []
+for ch in get_start_chars(word[-1]):
+    if ch in st.session_state.index:
+        # 아직 안 쓴 단어만 필터링
+        valid = [w for w in st.session_state.index[ch] if w not in st.session_state.used]
+        candidates.extend(valid)
                 # --- 3. AI 결과 판정 및 등록 ---
                 diff = st.session_state.get("difficulty", "보통")
                 
@@ -268,7 +312,8 @@ if not st.session_state.get("round_over", False):
                             "game_start_time": now_res, # 전체 시간 리셋
                             "turn_start": now_res,      # 턴 시간 리셋
                             "used": {new_f}, "last_word": new_f,
-                            "history": [("AI", new_f)], "chain": 1
+                            "history": [("AI", new_f)], "chain": 1,
+                            "stage": "stage1",
                         })
                     st.rerun()
                 
