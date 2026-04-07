@@ -253,108 +253,106 @@ if not st.session_state.get("round_over", False):
     chat_html += '</div>'
     st.markdown(chat_html, unsafe_allow_html=True)
 
-    # [F] 단어 입력 폼 및 AI 대응 로직
-    # clear_on_submit=True로 전송 후 입력창 비움
-    with st.form(key="game_input", clear_on_submit=True):
-        user_input = st.text_input("단어 입력", label_visibility="collapsed", placeholder="단어를 입력해주세요...")
-        submit = st.form_submit_button("전송")
-    
+# [F] 단어 입력 폼 및 AI 대응 로직
+with st.form(key="game_input", clear_on_submit=True):
+    user_input = st.text_input("단어 입력", label_visibility="collapsed", placeholder="단어를 입력해주세요...")
+    submit = st.form_submit_button("전송")
+
     if submit and user_input:
         word = user_input.strip()
-        # 단어 유효성 검사
+
+        # ✅ 단어 유효성 검사
         if word in st.session_state.words and word not in st.session_state.used and word[0] in starts:
             
-            # 유저 정답 처리
+            # --- 1. 유저 처리 ---
             st.session_state.used.add(word)
             st.session_state.history.append(("User", word))
             st.session_state.chain += 1
             st.session_state.last_word = word
-            
-            # 🔥 효과음
+
+            # 효과음
             try:
                 with open("input.mp3", "rb") as f:
                     st.audio(f.read(), format="audio/mp3", autoplay=True)
             except:
                 pass
-                
-# --- 2. AI 대응 단어 서칭 ---
-candidates = []
-for ch in get_start_chars(word[-1]):
-    if ch in st.session_state.index:
-        # 아직 안 쓴 단어만 필터링
-        valid = [w for w in st.session_state.index[ch] if w not in st.session_state.used]
-        candidates.extend(valid)
 
-# --- 3. AI 결과 판정 및 등록 ---
-diff = st.session_state.get("difficulty", "보통")
+            # --- 2. AI 후보 찾기 ---
+            candidates = []
+            for ch in get_start_chars(word[-1]):
+                if ch in st.session_state.index:
+                    valid = [w for w in st.session_state.index[ch] if w not in st.session_state.used]
+                    candidates.extend(valid)
 
-give_up_chance = 0.15 if diff == "쉬움" else 0.05 if diff == "보통" else 0
-if candidates and random.random() < give_up_chance:
-    candidates = []
+            # --- 3. 난이도 ---
+            diff = st.session_state.get("difficulty", "보통")
 
-# --- 4. 결과 처리 ---
-if not candidates:
-    # [유저 승리] AI가 단어를 못 찾음
-    st.session_state.history[-1] = ("User", f"🔥{word}")
-    st.session_state.user_score += 1
+            give_up_chance = 0.15 if diff == "쉬움" else 0.05 if diff == "보통" else 0
+            if candidates and random.random() < give_up_chance:
+                candidates = []
 
-    if st.session_state.current_round >= st.session_state.total_rounds:
-        st.session_state.round_over = True
-        st.session_state.winner = "User"
-    else:
-        st.toast("🎊 AI 항복! 다음 라운드로 이동합니다.")
-        time.sleep(1.5)
+            # --- 4. 결과 처리 ---
+            if not candidates:
+                # 유저 승리
+                st.session_state.history[-1] = ("User", f"🔥{word}")
+                st.session_state.user_score += 1
 
-        new_f = random.choice(list(st.session_state.words))
-        now_res = time.time()
-        st.session_state.update({
-            "current_round": st.session_state.current_round + 1,
-            "game_start_time": now_res,
-            "turn_start": now_res,
-            "used": {new_f},
-            "last_word": new_f,
-            "history": [("AI", new_f)],
-            "chain": 1,
-            "stage": "stage1",
-        })
-    st.rerun()
+                if st.session_state.current_round >= st.session_state.total_rounds:
+                    st.session_state.round_over = True
+                    st.session_state.winner = "User"
+                else:
+                    st.toast("🎊 AI 항복! 다음 라운드로 이동합니다.")
+                    time.sleep(1.5)
 
-else:
-    # [AI 응답]
-    delay = random.uniform(0.5, max(0.6, dynamic_limit * 0.4))
-    with st.spinner("AI가 생각 중..."):
-        time.sleep(delay)
+                    new_f = random.choice(list(st.session_state.words))
+                    now_res = time.time()
+                    st.session_state.update({
+                        "current_round": st.session_state.current_round + 1,
+                        "game_start_time": now_res,
+                        "turn_start": now_res,
+                        "used": {new_f},
+                        "last_word": new_f,
+                        "history": [("AI", new_f)],
+                        "chain": 1,
+                        "stage": "stage1",
+                    })
+                st.rerun()
 
-    if diff == "쉬움":
-        ai_word = random.choice(candidates)
-    elif diff == "보통":
-        candidates.sort(key=len)
-        idx_m = len(candidates) // 2
-        ai_word = random.choice(candidates[idx_m:] if idx_m > 0 else candidates)
-    else:
-        ai_word = max(candidates, key=len)
+            else:
+                # --- AI 응답 ---
+                delay = random.uniform(0.5, max(0.6, dynamic_limit * 0.4))
+                with st.spinner("AI가 생각 중..."):
+                    time.sleep(delay)
 
-    # AI 한방단어 체크
-    is_ai_killer = True
-    for next_ch in get_start_chars(ai_word[-1]):
-        if next_ch in st.session_state.index:
-            if any(w not in st.session_state.used and w != ai_word for w in st.session_state.index[next_ch]):
-                is_ai_killer = False
-                break
+                if diff == "쉬움":
+                    ai_word = random.choice(candidates)
+                elif diff == "보통":
+                    candidates.sort(key=len)
+                    idx_m = len(candidates) // 2
+                    ai_word = random.choice(candidates[idx_m:] if idx_m > 0 else candidates)
+                else:
+                    ai_word = max(candidates, key=len)
 
-    final_msg = f"🔥{ai_word}" if is_ai_killer else ai_word
+                # 한방단어 체크
+                is_ai_killer = True
+                for next_ch in get_start_chars(ai_word[-1]):
+                    if next_ch in st.session_state.index:
+                        if any(w not in st.session_state.used and w != ai_word for w in st.session_state.index[next_ch]):
+                            is_ai_killer = False
+                            break
 
-    st.session_state.used.add(ai_word)
-    st.session_state.history.append(("AI", final_msg))
-    st.session_state.last_word = ai_word
-    st.session_state.chain += 1
-    st.session_state.turn_start = time.time()
-    st.rerun()
-            
-else:
-    # 유효하지 않은 단어
-    st.toast("❌ 잘못되거나 이미 사용된 단어입니다!")
+                final_msg = f"🔥{ai_word}" if is_ai_killer else ai_word
 
+                st.session_state.used.add(ai_word)
+                st.session_state.history.append(("AI", final_msg))
+                st.session_state.last_word = ai_word
+                st.session_state.chain += 1
+                st.session_state.turn_start = time.time()
+                st.rerun()
+
+        else:
+            # ❌ 틀린 단어
+            st.toast("❌ 잘못되거나 이미 사용된 단어입니다!")
 # ────────────────────────────────────────────────
 # 6. 라운드 종료 화면 (307라인 SyntaxError 해결 지점)
 # (이 else는 위의 'if not st.session_state.get(...)'와 수직 줄이 같아야 함)
