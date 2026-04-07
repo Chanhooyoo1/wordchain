@@ -288,9 +288,9 @@ for ch in get_start_chars(word[-1]):
         diff = st.session_state.get("difficulty", "보통")
                 
                 # 난이도별 기권 확률 (쉬움 15%, 보통 5%)
-                give_up_chance = 0.15 if diff == "쉬움" else 0.05 if diff == "보통" else 0
-                if candidates and random.random() < give_up_chance:
-                    candidates = [] # 단어가 있어도 기권
+        give_up_chance = 0.15 if diff == "쉬움" else 0.05 if diff == "보통" else 0
+            if candidates and random.random() < give_up_chance:
+                candidates = [] # 단어가 있어도 기권
 
                 if not candidates:
                     # [유저 승리] AI가 단어를 못 찾음
