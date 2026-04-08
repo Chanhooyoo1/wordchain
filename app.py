@@ -856,6 +856,7 @@ if not st.session_state.get("round_over", False):
         with st.form(key="game_input", clear_on_submit=True):
             user_input = st.text_input(
                 "단어 입력",
+                key="word_input_main",
                 label_visibility="collapsed",
                 placeholder="단어를 입력해주세요...",
             )
@@ -985,18 +986,23 @@ if not st.session_state.get("round_over", False):
     components.html(
         """
 <script>
-const fixUI = () => {
-    const win = window.parent.document;
-    const chat = win.querySelector('.chat-wrap');
-    const input = win.querySelector('input');
-    if (chat) chat.scrollTop = chat.scrollHeight;
-    if (input && win.activeElement.tagName !== 'INPUT'
-              && win.activeElement.tagName !== 'TEXTAREA') input.focus();
-};
-const obs = new MutationObserver(fixUI);
-obs.observe(window.parent.document.body, { childList:true, subtree:true });
-setInterval(fixUI, 400);
-fixUI();
+(function(){
+    const p = window.parent;
+    const d = p.document;
+    const fixUI = () => {
+        const chat = d.querySelector('.chat-wrap');
+        const input = d.querySelector('input[aria-label="단어 입력"], input[placeholder="단어를 입력해주세요..."]');
+        if (chat) chat.scrollTop = chat.scrollHeight;
+        if (input && d.activeElement.tagName !== 'INPUT' && d.activeElement.tagName !== 'TEXTAREA') input.focus();
+    };
+    if (!p.__kkutuUiFixBound) {
+        p.__kkutuUiFixBound = true;
+        const obs = new MutationObserver(fixUI);
+        obs.observe(d.body, { childList:true, subtree:true });
+        p.__kkutuUiFixInterval = setInterval(fixUI, 400);
+    }
+    fixUI();
+})();
 </script>
 """,
         height=0,
