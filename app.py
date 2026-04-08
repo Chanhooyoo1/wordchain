@@ -23,6 +23,7 @@ SFX_FILES = {
 }
 
 AUDIO_EVENT_DELAY_MS = 180
+ROUND_START_BGM_DELAY_MS = 260
 
 
 def resolve_asset_path(filepath: str) -> Path:
@@ -63,21 +64,23 @@ def inject_kkutu_audio():
     bgmFading: false,
     sfxList: [],
     pendingEventTimer: null,
+    keepAliveInterval: null,
     tickInterval: null,
     lastTickTime: 0,
 
     _ctx: null,
     _retryOnce: false,
     unlock: function() {
-      if (p.__audioUnlocked) return;
       try {
-        this._ctx = new (p.AudioContext || p.webkitAudioContext)();
+        if (!this._ctx) this._ctx = new (p.AudioContext || p.webkitAudioContext)();
+        if (this._ctx.state === 'suspended') this._ctx.resume();
         var buf = this._ctx.createBuffer(1,1,22050);
         var src = this._ctx.createBufferSource();
         src.buffer = buf;
         src.connect(this._ctx.destination);
         src.start(0);
         p.__audioUnlocked = true;
+        this.startKeepAlive();
       } catch(e){}
     },
 
@@ -216,6 +219,31 @@ def inject_kkutu_audio():
         clearTimeout(this.pendingEventTimer);
         this.pendingEventTimer = null;
       }
+    },
+
+    startKeepAlive: function() {
+      var self = this;
+      if (this.keepAliveInterval) return;
+      this.keepAliveInterval = setInterval(function(){
+        try {
+          if (!self._ctx) return;
+          if (self._ctx.state === 'suspended') self._ctx.resume();
+          var osc = self._ctx.createOscillator();
+          var gain = self._ctx.createGain();
+          osc.connect(gain);
+          gain.connect(self._ctx.destination);
+          osc.frequency.value = 25;
+          osc.type = 'sine';
+          gain.gain.setValueAtTime(0.00001, self._ctx.currentTime);
+          osc.start(self._ctx.currentTime);
+          osc.stop(self._ctx.currentTime + 0.02);
+        } catch(e){}
+      }, 12000);
+    },
+    stopKeepAlive: function() {
+      if (!this.keepAliveInterval) return;
+      clearInterval(this.keepAliveInterval);
+      this.keepAliveInterval = null;
     },
 
     sfxInput: function(b64) {
@@ -461,7 +489,13 @@ def audio_delayed_event(event: str, bgm_file: str = "", delay_ms: int = 1000):
         else if ('{event}' === 'fail') am.sfxFail('{fail_b64}');
         else if ('{event}' === 'killer') am.sfxKiller('{killer_b64}');
         else if ('{event}' === 'stage_start') am.sfxStageUp('{stage_start_b64}');
-        if ('{bgm_b64}') am.cutAndPlayBGM('{bgm_b64}', 0.4);
+        if ('{bgm_b64}') {{
+          if ('{event}' === 'stage_start') {{
+            setTimeout(function(){{ am.cutAndPlayBGM('{bgm_b64}', 0.4); }}, {ROUND_START_BGM_DELAY_MS});
+          }} else {{
+            am.cutAndPlayBGM('{bgm_b64}', 0.4);
+          }}
+        }}
       }}, {delay_ms});
     """
     )
@@ -657,6 +691,7 @@ pending_ai = st.session_state.get("pending_ai", False)
 prev_stage = st.session_state.get("current_stage", "stage1")
 
 if st.session_state.get("round_audio_started_for", 0) != st.session_state.current_round:
+    audio_stop_all()
     audio_delayed_event("stage_start", new_bgm, delay_ms=0)
     st.session_state.round_audio_started_for = st.session_state.current_round
     st.session_state.bgm_started = True
