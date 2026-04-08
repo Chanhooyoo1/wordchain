@@ -368,7 +368,7 @@ def audio_play_bgm(bgm_file: str, fade_ms: int = 800):
 def audio_stage_start_then_bgm(
     start_sfx_file: str = SFX_FILES["stage_start"],
     bgm_file: str = "static/bgm1.mp3",
-    delay_ms: int = 500,
+    delay_ms: int = 0,
 ):
     start_b64 = load_b64(start_sfx_file)
     bgm_b64 = load_b64(bgm_file)
@@ -630,7 +630,7 @@ actual_turn_ratio = actual_turn_rem / dynamic_limit
 prev_stage = st.session_state.get("current_stage", "stage1")
 
 if not st.session_state.get("bgm_started", False):
-    audio_stage_start_then_bgm(SFX_FILES["stage_start"], new_bgm, delay_ms=500)
+    audio_stage_start_then_bgm(SFX_FILES["stage_start"], new_bgm, delay_ms=0)
     st.session_state.bgm_started = True
     st.session_state.current_stage = new_stage
 elif prev_stage != new_stage:
