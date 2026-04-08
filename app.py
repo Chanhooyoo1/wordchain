@@ -112,6 +112,22 @@ def inject_kkutu_audio():
       }
     },
 
+    // 현재 BGM을 즉시 끊고 새 BGM으로 바로 교체
+    cutAndPlayBGM: function(b64, vol) {
+      vol = vol || 0.4;
+      if (this.bgm) {
+        try { this.bgm.pause(); } catch(e){}
+        this.bgm = null;
+      }
+      this.bgmFading = false;
+      if (!b64) return;
+      var a = new p.Audio('data:audio/mp3;base64,' + b64);
+      a.loop = true;
+      a.volume = vol;
+      a.play().catch(function(){});
+      this.bgm = a;
+    },
+
     stopBGM: function(fadeMs) {
       if (!this.bgm) return;
       var self = this;
@@ -259,7 +275,7 @@ def audio_stage_up(sfx_file: str, bgm_file: str, fade_ms: int = 800):
     _js(
         f"""
       am.sfxStageUp('{sfx_b64}');
-      setTimeout(function(){{ am.playBGM('{bgm_b64}', 0.4, {fade_ms}); }}, 800);
+      am.cutAndPlayBGM('{bgm_b64}', 0.4);
     """
     )
 
