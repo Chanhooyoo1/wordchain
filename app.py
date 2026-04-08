@@ -22,6 +22,8 @@ SFX_FILES = {
     "stage_start": "stage2_start.mp3",
 }
 
+AUDIO_EVENT_DELAY_MS = 180
+
 
 def resolve_asset_path(filepath: str) -> Path:
     p = Path(filepath)
@@ -629,6 +631,9 @@ if "initialized" not in st.session_state:
                 "current_stage": "stage1",
                 "bgm_started": False,
                 "round_audio_started_for": 0,
+                "pending_ai": False,
+                "pending_ai_due_at": 0.0,
+                "pending_ai_candidates": [],
                 "ticking": False,
             }
         )
@@ -644,6 +649,7 @@ dynamic_limit, new_stage, new_bgm, new_sfx = get_stage(st.session_state.chain)
 turn_elapsed = now - st.session_state.turn_start
 actual_turn_rem = max(0.0, dynamic_limit - turn_elapsed)
 actual_turn_ratio = actual_turn_rem / dynamic_limit
+pending_ai = st.session_state.get("pending_ai", False)
 
 prev_stage = st.session_state.get("current_stage", "stage1")
 
@@ -656,7 +662,7 @@ elif prev_stage != new_stage:
     audio_stage_up(new_sfx, new_bgm)
     st.session_state.current_stage = new_stage
 
-is_low_time = actual_turn_rem <= 3.0 and actual_turn_rem > 0
+is_low_time = (not pending_ai) and actual_turn_rem <= 3.0 and actual_turn_rem > 0
 if is_low_time and not st.session_state.get("ticking", False):
     audio_tick_start()
     st.session_state.ticking = True
@@ -675,7 +681,7 @@ if st.session_state.get("round_over", False):
 
 
 if not st.session_state.get("round_over", False):
-    if bank_rem <= 0 or actual_turn_rem <= 0:
+    if bank_rem <= 0 or ((not pending_ai) and actual_turn_rem <= 0):
         audio_lose()
         st.session_state.round_over = True
         st.session_state.ai_score += 1
