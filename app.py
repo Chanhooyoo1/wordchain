@@ -3,14 +3,36 @@ import time
 import re
 import base64
 from collections import defaultdict
+from pathlib import Path
 
 import streamlit as st
 import streamlit.components.v1 as components
 
 
+BASE_DIR = Path(__file__).resolve().parent
+
+
+SFX_FILES = {
+    "input": "sfx_input.mp3",
+    "fail": "sfx_fail.mp3",
+    "killer": "sfx_killer.mp3",
+    "win": "sfx_win.mp3",
+    "lose": "sfx_lose.mp3",
+    "tick": "sfx_tick.mp3",
+    "stage_start": "stage2_start.mp3",
+}
+
+
+def resolve_asset_path(filepath: str) -> Path:
+    p = Path(filepath)
+    if p.is_absolute():
+        return p
+    return BASE_DIR / p
+
+
 def load_b64(filepath: str) -> str:
     try:
-        with open(filepath, "rb") as f:
+        with open(resolve_asset_path(filepath), "rb") as f:
             return base64.b64encode(f.read()).decode()
     except Exception:
         return ""
@@ -38,6 +60,7 @@ def inject_kkutu_audio():
     bgm: null,
     bgmFading: false,
     sfxList: [],
+    pendingEventTimer: null,
     tickInterval: null,
     lastTickTime: 0,
 
@@ -169,6 +192,13 @@ def inject_kkutu_audio():
       this.sfxList = [];
     },
 
+    clearPendingEvent: function() {
+      if (this.pendingEventTimer) {
+        clearTimeout(this.pendingEventTimer);
+        this.pendingEventTimer = null;
+      }
+    },
+
     sfxInput: function(b64) {
       if (b64) {
         this.playSFX(b64, 0.7);
@@ -249,6 +279,7 @@ def inject_kkutu_audio():
 
     // 라운드/스테이지 종료 시 오디오 잔재를 남기지 않도록 전체 정지
     stopAll: function() {
+      this.clearPendingEvent();
       this.stopTick();
       this.stopSFX();
       if (this.bgm) {
@@ -335,7 +366,7 @@ def audio_play_bgm(bgm_file: str, fade_ms: int = 800):
 
 
 def audio_stage_start_then_bgm(
-    start_sfx_file: str = "static/stage2_start.mp3",
+    start_sfx_file: str = SFX_FILES["stage_start"],
     bgm_file: str = "static/bgm1.mp3",
     delay_ms: int = 500,
 ):
@@ -363,27 +394,27 @@ def audio_stage_up(sfx_file: str, bgm_file: str, fade_ms: int = 800):
     )
 
 
-def audio_input(sfx_file: str = "static/sfx_input.mp3"):
+def audio_input(sfx_file: str = SFX_FILES["input"]):
     _js(f"am.sfxInput('{load_b64(sfx_file)}');")
 
 
-def audio_fail(sfx_file: str = "static/sfx_fail.mp3"):
+def audio_fail(sfx_file: str = SFX_FILES["fail"]):
     _js(f"am.sfxFail('{load_b64(sfx_file)}');")
 
 
-def audio_killer(sfx_file: str = "static/sfx_killer.mp3"):
+def audio_killer(sfx_file: str = SFX_FILES["killer"]):
     _js(f"am.sfxKiller('{load_b64(sfx_file)}');")
 
 
-def audio_win(sfx_file: str = "static/sfx_win.mp3"):
+def audio_win(sfx_file: str = SFX_FILES["win"]):
     _js(f"am.stopTick(); am.stopBGM(300); am.sfxWin('{load_b64(sfx_file)}');")
 
 
-def audio_lose(sfx_file: str = "static/sfx_lose.mp3"):
+def audio_lose(sfx_file: str = SFX_FILES["lose"]):
     _js(f"am.stopTick(); am.stopBGM(300); am.sfxLose('{load_b64(sfx_file)}');")
 
 
-def audio_tick_start(sfx_file: str = "static/sfx_tick.mp3"):
+def audio_tick_start(sfx_file: str = SFX_FILES["tick"]):
     _js(f"am.startTick('{load_b64(sfx_file)}');")
 
 
@@ -396,13 +427,15 @@ def audio_stop_all():
 
 
 def audio_delayed_event(event: str, bgm_file: str = "", delay_ms: int = 1000):
-    input_b64 = load_b64("static/sfx_input.mp3")
-    fail_b64 = load_b64("static/sfx_fail.mp3")
-    killer_b64 = load_b64("static/sfx_killer.mp3")
+    input_b64 = load_b64(SFX_FILES["input"])
+    fail_b64 = load_b64(SFX_FILES["fail"])
+    killer_b64 = load_b64(SFX_FILES["killer"])
     bgm_b64 = load_b64(bgm_file) if bgm_file else ""
     _js(
         f"""
-      setTimeout(function(){{
+      am.clearPendingEvent();
+      am.pendingEventTimer = setTimeout(function(){{
+        am.pendingEventTimer = null;
         am.stopSFX();
         if ('{event}' === 'input') am.sfxInput('{input_b64}');
         else if ('{event}' === 'fail') am.sfxFail('{fail_b64}');
@@ -414,11 +447,11 @@ def audio_delayed_event(event: str, bgm_file: str = "", delay_ms: int = 1000):
 
 
 STAGES = [
-    (35, 2.0, "stage5", "static/bgm5.mp3", "static/stage5_up.mp3"),
-    (28, 5.0, "stage4", "static/bgm4.mp3", "static/stage4_up.mp3"),
-    (18, 8.0, "stage3", "static/bgm3.mp3", "static/stage3_up.mp3"),
-    (8, 12.0, "stage2", "static/bgm2.mp3", "static/stage2_up.mp3"),
-    (0, 15.0, "stage1", "static/bgm1.mp3", ""),
+    (35, 2.0, "stage5", "bgm5.mp3", "stage5_up.mp3"),
+    (28, 5.0, "stage4", "bgm4.mp3", "stage4_up.mp3"),
+    (18, 8.0, "stage3", "bgm3.mp3", "stage3_up.mp3"),
+    (8, 12.0, "stage2", "bgm2.mp3", "stage2_up.mp3"),
+    (0, 15.0, "stage1", "bgm1.mp3", ""),
 ]
 
 
@@ -426,13 +459,13 @@ def get_stage(chain: int):
     for min_chain, limit, name, bgm, sfx in STAGES:
         if chain >= min_chain:
             return limit, name, bgm, sfx
-    return 15.0, "stage1", "static/bgm1.mp3", ""
+    return 15.0, "stage1", "bgm1.mp3", ""
 
 
 @st.cache_data(show_spinner=False)
 def load_word_data():
     try:
-        with open("words.js", "r", encoding="utf-8") as f:
+        with open(resolve_asset_path("words.js"), "r", encoding="utf-8") as f:
             content = f.read()
         extracted = re.findall(r'["\']([가-힣]{2,4})["\']', content)
         if extracted:
@@ -597,7 +630,7 @@ actual_turn_ratio = actual_turn_rem / dynamic_limit
 prev_stage = st.session_state.get("current_stage", "stage1")
 
 if not st.session_state.get("bgm_started", False):
-    audio_stage_start_then_bgm("static/stage2_start.mp3", new_bgm, delay_ms=500)
+    audio_stage_start_then_bgm(SFX_FILES["stage_start"], new_bgm, delay_ms=500)
     st.session_state.bgm_started = True
     st.session_state.current_stage = new_stage
 elif prev_stage != new_stage:
