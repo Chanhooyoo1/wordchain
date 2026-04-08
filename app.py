@@ -65,6 +65,7 @@ def inject_kkutu_audio():
     lastTickTime: 0,
 
     _ctx: null,
+    _retryOnce: false,
     unlock: function() {
       if (p.__audioUnlocked) return;
       try {
@@ -94,6 +95,22 @@ def inject_kkutu_audio():
       } catch(e){}
     },
 
+    _playAudioElement: function(a) {
+      var self = this;
+      this.unlock();
+      a.play().catch(function(){
+        // 자동재생 차단 시 다음 사용자 클릭에서 1회 재시도
+        if (self._retryOnce) return;
+        self._retryOnce = true;
+        var retry = function() {
+          self._retryOnce = false;
+          try { a.play().catch(function(){}); } catch(e){}
+          p.document.removeEventListener('click', retry, true);
+        };
+        p.document.addEventListener('click', retry, true);
+      });
+    },
+
     playBGM: function(b64, vol, fadeMs) {
       var self = this;
       vol = vol || 0.4;
@@ -104,7 +121,7 @@ def inject_kkutu_audio():
         var a = new p.Audio('data:audio/mp3;base64,' + b64);
         a.loop = true;
         a.volume = 0;
-        a.play().catch(function(){});
+        self._playAudioElement(a);
         self.bgm = a;
         var step = vol / (fadeMs / 50);
         var fi = setInterval(function(){
@@ -151,7 +168,7 @@ def inject_kkutu_audio():
       var a = new p.Audio('data:audio/mp3;base64,' + b64);
       a.loop = true;
       a.volume = vol;
-      a.play().catch(function(){});
+      this._playAudioElement(a);
       this.bgm = a;
     },
 
@@ -180,7 +197,7 @@ def inject_kkutu_audio():
           var idx = p.__kkutuAudio.sfxList.indexOf(a);
           if (idx > -1) p.__kkutuAudio.sfxList.splice(idx, 1);
         };
-        a.play().catch(function(){});
+        this._playAudioElement(a);
       }
     },
 
@@ -367,7 +384,7 @@ def audio_play_bgm(bgm_file: str, fade_ms: int = 800):
 
 def audio_stage_start_then_bgm(
     start_sfx_file: str = SFX_FILES["stage_start"],
-    bgm_file: str = "static/bgm1.mp3",
+    bgm_file: str = "bgm1.mp3",
     delay_ms: int = 0,
 ):
     start_b64 = load_b64(start_sfx_file)
@@ -611,6 +628,7 @@ if "initialized" not in st.session_state:
                 "winner": None,
                 "current_stage": "stage1",
                 "bgm_started": False,
+                "round_audio_started_for": 0,
                 "ticking": False,
             }
         )
@@ -629,8 +647,9 @@ actual_turn_ratio = actual_turn_rem / dynamic_limit
 
 prev_stage = st.session_state.get("current_stage", "stage1")
 
-if not st.session_state.get("bgm_started", False):
+if st.session_state.get("round_audio_started_for", 0) != st.session_state.current_round:
     audio_stage_start_then_bgm(SFX_FILES["stage_start"], new_bgm, delay_ms=0)
+    st.session_state.round_audio_started_for = st.session_state.current_round
     st.session_state.bgm_started = True
     st.session_state.current_stage = new_stage
 elif prev_stage != new_stage:
@@ -793,6 +812,7 @@ if not st.session_state.get("round_over", False):
                                 "chain": 1,
                                 "current_stage": "stage1",
                                 "bgm_started": False,
+                                "round_audio_started_for": 0,
                                 "ticking": False,
                             }
                         )
@@ -869,6 +889,7 @@ if st.session_state.get("round_over", False):
                     "current_round": st.session_state.current_round + 1,
                     "current_stage": "stage1",
                     "bgm_started": False,
+                    "round_audio_started_for": 0,
                     "ticking": False,
                 }
             )
