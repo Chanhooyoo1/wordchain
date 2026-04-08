@@ -37,6 +37,7 @@ def inject_kkutu_audio():
   p.__kkutuAudio = {
     bgm: null,
     bgmFading: false,
+    sfxList: [],
     tickInterval: null,
     lastTickTime: 0,
 
@@ -151,8 +152,21 @@ def inject_kkutu_audio():
       if (b64) {
         var a = new p.Audio('data:audio/mp3;base64,' + b64);
         a.volume = vol || 0.8;
+        this.sfxList.push(a);
+        a.onended = function() {
+          var idx = p.__kkutuAudio.sfxList.indexOf(a);
+          if (idx > -1) p.__kkutuAudio.sfxList.splice(idx, 1);
+        };
         a.play().catch(function(){});
       }
+    },
+
+    stopSFX: function() {
+      if (!this.sfxList || !this.sfxList.length) return;
+      this.sfxList.forEach(function(a){
+        try { a.pause(); a.currentTime = 0; } catch(e){}
+      });
+      this.sfxList = [];
     },
 
     sfxInput: function(b64) {
@@ -236,6 +250,7 @@ def inject_kkutu_audio():
     // 라운드/스테이지 종료 시 오디오 잔재를 남기지 않도록 전체 정지
     stopAll: function() {
       this.stopTick();
+      this.stopSFX();
       if (this.bgm) {
         try { this.bgm.pause(); } catch(e){}
         this.bgm = null;
@@ -319,6 +334,24 @@ def audio_play_bgm(bgm_file: str, fade_ms: int = 800):
     _js(f"am.playBGM('{b64}', 0.4, {fade_ms});")
 
 
+def audio_stage_start_then_bgm(
+    start_sfx_file: str = "static/stage2_start.mp3",
+    bgm_file: str = "static/bgm1.mp3",
+    delay_ms: int = 500,
+):
+    start_b64 = load_b64(start_sfx_file)
+    bgm_b64 = load_b64(bgm_file)
+    _js(
+        f"""
+      am.stopAll();
+      am.sfxStageUp('{start_b64}');
+      setTimeout(function(){{
+        am.cutAndPlayBGM('{bgm_b64}', 0.4);
+      }}, {delay_ms});
+    """
+    )
+
+
 def audio_stage_up(sfx_file: str, bgm_file: str, fade_ms: int = 800):
     sfx_b64 = load_b64(sfx_file)
     bgm_b64 = load_b64(bgm_file)
@@ -370,6 +403,7 @@ def audio_delayed_event(event: str, bgm_file: str = "", delay_ms: int = 1000):
     _js(
         f"""
       setTimeout(function(){{
+        am.stopSFX();
         if ('{event}' === 'input') am.sfxInput('{input_b64}');
         else if ('{event}' === 'fail') am.sfxFail('{fail_b64}');
         else if ('{event}' === 'killer') am.sfxKiller('{killer_b64}');
@@ -563,7 +597,7 @@ actual_turn_ratio = actual_turn_rem / dynamic_limit
 prev_stage = st.session_state.get("current_stage", "stage1")
 
 if not st.session_state.get("bgm_started", False):
-    audio_play_bgm(new_bgm, fade_ms=1000)
+    audio_stage_start_then_bgm("static/stage2_start.mp3", new_bgm, delay_ms=500)
     st.session_state.bgm_started = True
     st.session_state.current_stage = new_stage
 elif prev_stage != new_stage:
