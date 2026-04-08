@@ -29,7 +29,10 @@ def inject_kkutu_audio():
 <script>
 (function(){
   var p = window.parent;
-  if (p.__kkutuAudio) return;
+  if (p.__kkutuAudio) {
+    if (p.__kkutuStartClicked) p.__kkutuAudio.unlock();
+    return;
+  }
 
   p.__kkutuAudio = {
     bgm: null,
@@ -228,12 +231,59 @@ def inject_kkutu_audio():
         clearInterval(this.tickInterval);
         this.tickInterval = null;
       }
+    },
+
+    // 라운드/스테이지 종료 시 오디오 잔재를 남기지 않도록 전체 정지
+    stopAll: function() {
+      this.stopTick();
+      if (this.bgm) {
+        try { this.bgm.pause(); } catch(e){}
+        this.bgm = null;
+      }
+      this.bgmFading = false;
     }
   };
 
   p.document.addEventListener('click', function(){
     p.__kkutuAudio.unlock();
   });
+
+  // 게임 시작 버튼 클릭 직후 리런되어도 unlock 상태를 유지
+  if (p.__kkutuStartClicked) {
+    p.__kkutuAudio.unlock();
+  }
+})();
+</script>
+""",
+        height=0,
+    )
+
+
+def inject_start_button_audio_bootstrap():
+    """
+    로비 화면의 '게임 입장하기' 버튼 클릭을 가로채서
+    오디오 unlock 플래그를 먼저 올린다.
+    """
+    components.html(
+        """
+<script>
+(function(){
+  var p = window.parent;
+  var d = p.document;
+  function bind() {
+    var btns = d.querySelectorAll('div.stButton > button');
+    btns.forEach(function(btn){
+      if (btn.__kkutuBound) return;
+      if ((btn.innerText || '').trim() !== '게임 입장하기') return;
+      btn.__kkutuBound = true;
+      btn.addEventListener('click', function(){
+        p.__kkutuStartClicked = true;
+        if (p.__kkutuAudio) p.__kkutuAudio.unlock();
+      }, {capture:true});
+    });
+  }
+  bind();
+  setTimeout(bind, 100);
 })();
 </script>
 """,
@@ -306,6 +356,27 @@ def audio_tick_start(sfx_file: str = "static/sfx_tick.mp3"):
 
 def audio_tick_stop():
     _js("am.stopTick();")
+
+
+def audio_stop_all():
+    _js("am.stopAll();")
+
+
+def audio_delayed_event(event: str, bgm_file: str = "", delay_ms: int = 1000):
+    input_b64 = load_b64("static/sfx_input.mp3")
+    fail_b64 = load_b64("static/sfx_fail.mp3")
+    killer_b64 = load_b64("static/sfx_killer.mp3")
+    bgm_b64 = load_b64(bgm_file) if bgm_file else ""
+    _js(
+        f"""
+      setTimeout(function(){{
+        if ('{event}' === 'input') am.sfxInput('{input_b64}');
+        else if ('{event}' === 'fail') am.sfxFail('{fail_b64}');
+        else if ('{event}' === 'killer') am.sfxKiller('{killer_b64}');
+        if ('{bgm_b64}') am.cutAndPlayBGM('{bgm_b64}', 0.4);
+      }}, {delay_ms});
+    """
+    )
 
 
 STAGES = [
@@ -424,6 +495,7 @@ if st.session_state.get("audio_enabled", False):
     inject_kkutu_audio()
 
 if "initialized" not in st.session_state:
+    inject_start_button_audio_bootstrap()
     st.markdown('<div class="grad-title">끝말잇기</div>', unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns(3)
@@ -511,8 +583,9 @@ st.session_state.actual_turn_rem = actual_turn_rem
 
 # 라운드 종료 상태에서는 틱 사운드가 남지 않도록 강제 정지
 if st.session_state.get("round_over", False):
-    audio_tick_stop()
+    audio_stop_all()
     st.session_state.ticking = False
+    st.session_state.bgm_started = False
 
 
 if not st.session_state.get("round_over", False):
@@ -602,6 +675,8 @@ if not st.session_state.get("round_over", False):
         submit = st.form_submit_button("전송")
 
         if submit and user_input:
+            # 전송 버튼 즉시: 현재 재생 중인 소리 전체 중단
+            audio_stop_all()
             word = user_input.strip()
 
             if word in st.session_state.words and word not in st.session_state.used and word[0] in starts:
@@ -611,8 +686,8 @@ if not st.session_state.get("round_over", False):
                 st.session_state.last_word = word
                 st.session_state.ticking = False
 
-                audio_input()
-                audio_tick_stop()
+                user_bgm = get_stage(st.session_state.chain)[2]
+                audio_delayed_event("input", user_bgm, delay_ms=1000)
 
                 candidates = []
                 for ch in get_start_chars(word[-1]):
@@ -629,7 +704,7 @@ if not st.session_state.get("round_over", False):
                 if not candidates:
                     st.session_state.history[-1] = ("User", f"🔥{word}")
                     st.session_state.user_score += 1
-                    audio_killer()
+                    audio_delayed_event("killer", "", delay_ms=1000)
                     audio_win()
 
                     if st.session_state.current_round >= st.session_state.total_rounds:
@@ -654,6 +729,7 @@ if not st.session_state.get("round_over", False):
                                 "ticking": False,
                             }
                         )
+                        audio_stop_all()
                     st.rerun()
                 else:
                     delay = random.uniform(0.5, max(0.6, dynamic_limit * 0.4))
@@ -680,8 +756,12 @@ if not st.session_state.get("round_over", False):
                                 break
 
                     final_msg = f"🔥{ai_word}" if is_killer else ai_word
+                    next_ai_bgm = get_stage(st.session_state.chain + 1)[2]
+                    audio_stop_all()
                     if is_killer:
-                        audio_killer()
+                        audio_delayed_event("killer", next_ai_bgm, delay_ms=1000)
+                    else:
+                        audio_delayed_event("input", next_ai_bgm, delay_ms=1000)
 
                     st.session_state.used.add(ai_word)
                     st.session_state.history.append(("AI", final_msg))
@@ -691,7 +771,7 @@ if not st.session_state.get("round_over", False):
                     st.session_state.ticking = False
                     st.rerun()
             else:
-                audio_fail()
+                audio_delayed_event("fail", new_bgm, delay_ms=1000)
                 st.toast("❌ 잘못되거나 이미 사용된 단어입니다!")
 else:
     b_rem = st.session_state.get("bank_rem", 0)
@@ -706,6 +786,7 @@ else:
 if st.session_state.get("round_over", False):
     if st.session_state.current_round < st.session_state.total_rounds:
         if st.button(f"🕐 다음 라운드({st.session_state.current_round + 1}) 시작하기"):
+            audio_stop_all()
             new_first = random.choice(list(st.session_state.words))
             now_reset = time.time()
             st.session_state.update(
@@ -728,6 +809,7 @@ if st.session_state.get("round_over", False):
     else:
         st.warning("🎮 모든 라운드가 종료되었습니다!")
         if st.button("🔄 게임 초기화 및 처음부터 다시 시작", key="final_restart"):
+            audio_stop_all()
             for k in list(st.session_state.keys()):
                 del st.session_state[k]
             st.rerun()
