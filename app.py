@@ -1,27 +1,10 @@
+
 import random
 import time
 import re
-import base64
 import streamlit as st
 import streamlit.components.v1 as components
 from collections import defaultdict
-
-# ────────────────────────────────────────────────
-# 🔥 0. 오디오 재생 함수 (핵심)
-# ────────────────────────────────────────────────
-def play_sound(file):
-    try:
-        with open(file, "rb") as f:
-            data = f.read()
-            b64 = base64.b64encode(data).decode()
-            md = f"""
-            <audio autoplay>
-            <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
-            </audio>
-            """
-            st.markdown(md, unsafe_allow_html=True)
-    except:
-        pass
 
 # ────────────────────────────────────────────────
 # 1. 데이터 로드 및 두음법칙
@@ -34,144 +17,416 @@ def load_word_data():
         extracted = re.findall(r'["\']([가-힣]{2,4})["\']', content)
         if extracted:
             return frozenset(extracted)
-    except:
+    except FileNotFoundError:
         pass
-    return frozenset(["가구", "가방", "가수", "기차", "나비", "나무", "우주", "주스"])
+    return frozenset(["가구", "가방", "가수", "기차", "나비", "나무", "우주", "주스", "스낵", "노을", "음악"])
 
-DUEUM = {'녀':'여','뇨':'요','뉴':'유','니':'이','라':'나','락':'낙','량':'양','려':'여','로':'노','루':'누'}
+DUEUM = {
+    '녀': '여', '뇨': '요', '뉴': '유', '니': '이', '랴': '야', '려': '여', '례': '예', '료': '요',
+    '류': '유', '리': '이', '락': '낙', '래': '내', '랭': '냉', '략': '약', '량': '양', '령': '영',
+    '로': '노', '뢰': '뇌', '룡': '용', '루': '누', '륙': '육', '륜': '윤', '률': '율', '릉': '능',
+    '린': '인', '림': '임', '립': '입', '라': '나', '랄': '날', '람': '남', '랍': '납', '랑': '낭',
+    '르': '느', '념': '염', '렴': '염', '름': '늠',
+}
 
 def get_start_chars(last_char):
     chars = {last_char}
-    if last_char in DUEUM:
-        chars.add(DUEUM[last_char])
+    if last_char in DUEUM: chars.add(DUEUM[last_char])
     return list(chars)
 
 # ────────────────────────────────────────────────
-# 2. UI
+# 2. 페이지 설정 및 CSS
 # ────────────────────────────────────────────────
 st.set_page_config(page_title="끝말잇기", layout="centered")
 
 st.markdown("""
 <style>
-.grad-title {
-    background: linear-gradient(90deg, #FF0000, #8A2BE2);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    font-size: 3rem;
-    text-align: center;
-}
-.chat-wrap {
-    height:300px;
-    overflow-y:auto;
-    background:#f8f9fa;
-    padding:15px;
-    border-radius:10px;
-}
-.bubble-ai {background:white; padding:8px 12px; border-radius:10px;}
-.bubble-user {background:linear-gradient(135deg,#FF0055,#7000FF); color:white; padding:8px 12px; border-radius:10px;}
+    .grad-title {
+        background: linear-gradient(90deg, #FF0000, #8A2BE2);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        font-size: 3rem; font-weight: 800; text-align: center; margin-bottom: 5px;
+    }
+    .chat-wrap { 
+        background: #f8f9fa; border-radius: 15px; padding: 20px; 
+        height: 300px; overflow-y: auto; border: 1px solid #e9ecef; 
+        margin-bottom: 10px; display: flex; flex-direction: column;
+    }
+    .msg-row-ai { display:flex; justify-content:flex-start; margin-bottom:12px; }
+    .msg-row-user { display:flex; justify-content:flex-end; margin-bottom:12px; }
+    .bubble-ai { background: #ffffff; color: black; border: 1px solid #dee2e6; border-radius: 15px 15px 15px 2px; padding: 8px 12px; }
+    .bubble-user { background: linear-gradient(135deg, #FF0055, #7000FF); color: white; border-radius: 15px 15px 2px 15px; padding: 8px 12px; }
+    .timer-container { width: 100%; background-color: #333; border-radius: 10px; height: 18px; margin-bottom: 4px; overflow: hidden; }
+    .bank-container { width: 100%; background-color: #222; border-radius: 5px; height: 8px; overflow: hidden; }
+    div.stButton > button { background: linear-gradient(135deg, #FF0000, #8A2BE2) !important; color: white !important; width: 100%; }
 </style>
 """, unsafe_allow_html=True)
 
 # ────────────────────────────────────────────────
-# 3. 초기화
+# 3. 게임 초기화 (입장 전 화면)
 # ────────────────────────────────────────────────
-if "init" not in st.session_state:
+if "initialized" not in st.session_state:
     st.markdown('<div class="grad-title">끝말잇기</div>', unsafe_allow_html=True)
-
-    rounds = st.number_input("라운드",1,10,3)
-    total_time = st.selectbox("시간",[180,120,90],1)
-
-    if st.button("시작"):
-        words = load_word_data()
+    
+    # 설정 UI: 3개의 컬럼으로 깔끔하게 배치
+    col1, col2, col3 = st.columns(3)
+    with col1: 
+        total_rounds = st.number_input("총 라운드 수", 1, 10, 3)
+    with col2: 
+        time_choice = st.selectbox("전체 제한 시간 (초)", [180, 120, 90, 60], index=1)
+    with col3: 
+        difficulty = st.selectbox("AI 난이도", ["쉬움", "보통", "어려움"], index=1)
+    if st.button("게임 입장하기"):
+        # 단어 데이터 로드
+        words_data = load_word_data()
+        
         idx = defaultdict(list)
+        valid_words = []
+        for w in words_data:
+            if w and len(w) >= 2:
+                idx[w[0]].append(w)
+                valid_words.append(w)
+        
+        # 단어 데이터가 없을 경우를 대비한 방어 코드
+        if not valid_words:
+            valid_words = ["기차", "나무", "나비", "우주", "주스"]
+            for w in valid_words: idx[w[0]].append(w)
 
-        for w in words:
-            idx[w[0]].append(w)
-
-        first = random.choice(list(words))
-
+        # 첫 단어 랜덤 선정
+        first = random.choice(valid_words)
+        now = time.time()
+        
+        # 모든 설정값 세션 상태에 저장
         st.session_state.update({
-            "init":True,
-            "words":words,
-            "index":idx,
-            "used":{first},
-            "last_word":first,
-            "history":[("AI",first)],
-            "chain":1,
-            "round":1,
-            "total_rounds":rounds,
-            "time_limit":total_time,
-            "start":time.time()
+            "initialized": True, 
+            "difficulty": difficulty,      # 난이도 저장 (쉬움/보통/어려움)
+            "words": frozenset(valid_words), 
+            "index": dict(idx),
+            "user_score": 0, 
+            "ai_score": 0, 
+            "current_round": 1, 
+            "total_rounds": total_rounds,
+            "game_start_time": now,        # 파란 바(전체 시간) 기준점
+            "total_limit": float(time_choice),
+            "turn_limit": 15.0,
+            "turn_start": now,             # 노란 바(턴 시간) 기준점
+            "used": {first}, 
+            "last_word": first, 
+            "history": [("AI", first)],
+            "round_over": False, 
+            "chain": 1, 
+            "winner": None
         })
         st.rerun()
-    st.stop()
-
+    st.stop() # 게임 시작 전에는 아래 로직 실행 방지
 # ────────────────────────────────────────────────
-# 🔥 사운드 트리거 처리
+# 4. 실시간 가속 엔진 (체인 기반 단계형 + BGM)
 # ────────────────────────────────────────────────
-if "sound" in st.session_state:
-    play_sound(st.session_state.sound)
-    del st.session_state.sound
-
-# ────────────────────────────────────────────────
-# 4. 게임 진행
-# ────────────────────────────────────────────────
-st.write(f"라운드 {st.session_state.round}")
-
-# 채팅
-html = '<div class="chat-wrap">'
-for sp, txt in st.session_state.history:
-    if sp=="AI":
-        html += f'<div class="bubble-ai">{txt}</div>'
+def get_turn_limit(chain):
+    if chain >= 28:
+        return 2.0, "stage5"
+    elif chain >= 20:
+        return 5.0, "stage4"
+    elif chain >= 8:
+        return 8.0, "stage3"
+    elif chain >= 5:
+        return 11.0, "stage2"
     else:
-        html += f'<div class="bubble-user">{txt}</div>'
-html += '</div>'
-st.markdown(html, unsafe_allow_html=True)
+        return 15.0, "stage1"
 
-# 입력
-with st.form("input"):
-    user = st.text_input("단어")
-    submit = st.form_submit_button("전송")
+now = time.time()
 
-    if submit and user:
-        word = user.strip()
+# 전체 뱅크 시간 계산 (이건 그대로 유지)
+bank_rem = max(0.0, st.session_state.total_limit - (now - st.session_state.game_start_time))
+bank_ratio = bank_rem / st.session_state.total_limit
 
-        starts = get_start_chars(st.session_state.last_word[-1])
+# 🔥 체인 기반 턴 시간 계산
+dynamic_limit, current_stage = get_turn_limit(st.session_state.chain)
 
-        if word in st.session_state.words and word not in st.session_state.used and word[0] in starts:
+turn_elapsed = now - st.session_state.turn_start
+actual_turn_rem = max(0.0, dynamic_limit - turn_elapsed)
+actual_turn_ratio = actual_turn_rem / dynamic_limit
 
-            # 🔥 입력 효과음
-            st.session_state.sound = "input.mp3"
+# 🔥 스테이지 변경 감지 + BGM 실행
+if "stage" not in st.session_state:
+    st.session_state.stage = current_stage
 
-            st.session_state.used.add(word)
-            st.session_state.history.append(("User",word))
-            st.session_state.last_word = word
+if st.session_state.stage != current_stage:
+    st.session_state.stage = current_stage
 
-            # AI
-            candidates=[]
-            for ch in get_start_chars(word[-1]):
-                if ch in st.session_state.index:
-                    candidates += [w for w in st.session_state.index[ch] if w not in st.session_state.used]
+    bgm_map = {
+        "stage1": "bgm1.mp3",
+        "stage2": "bgm2.mp3",
+        "stage3": "bgm3.mp3",
+        "stage4": "bgm4.mp3",
+        "stage5": "bgm5.mp3",
+    }
 
-            if not candidates:
-                st.success("승리!")
-                st.stop()
+    bgm_file = bgm_map.get(current_stage)
 
-            ai = random.choice(candidates)
+    if bgm_file:
+        try:
+            with open(bgm_file, "rb") as f:
+                audio_bytes = f.read()
+            st.audio(audio_bytes, format="audio/mp3", autoplay=True)
+        except:
+            pass
 
-            # 🔥 AI 효과음
-            st.session_state.sound = "ai.mp3"
+# 세션에 현재 값 저장
+st.session_state.bank_rem = bank_rem
+st.session_state.actual_turn_rem = actual_turn_rem
+# ────────────────────────────────────────────────
+# 5. 게임 중 UI 및 입력 처리 (이 if문은 맨 왼쪽 벽에서 4칸 들여쓰기)
+# ────────────────────────────────────────────────
+if not st.session_state.get("round_over", False):
+    # [A] 실시간 패배 판정 (4번 섹션의 가속 엔진 변수 연동)
+    if bank_rem <= 0 or actual_turn_rem <= 0:
+        st.session_state.round_over = True
+        st.session_state.ai_score += 1
+        st.session_state.end_reason = "timeout"  # 🔥 추가
+        st.session_state.winner = "AI"
+        st.rerun()
 
-            st.session_state.used.add(ai)
-            st.session_state.history.append(("AI",ai))
-            st.session_state.last_word = ai
+    # [B] 상단 스코어 보드
+    st.write(f"**라운드 {st.session_state.current_round} / {st.session_state.total_rounds}**")
+    c1, c2 = st.columns(2)
+    c1.metric("나 (User)", st.session_state.user_score)
+    c2.metric("상대 (AI)", st.session_state.ai_score)
 
+    # [C] 체인 및 다음 글자 상자 UI
+    # last_word는 초기화 시 또는 AI 응답 시 세션에 저장됨
+    starts = get_start_chars(st.session_state.last_word[-1])
+    starts_display = " 또는 ".join(starts)
+    st.markdown(f"""
+        <div style="text-align: center; margin-top: 10px; margin-bottom: 15px;">
+            <div style="display: inline-block; background: linear-gradient(135deg, #FF0055, #7000FF); color: white; padding: 4px 15px; border-radius: 20px; font-weight: bold; font-size: 1.1rem; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); border: 1px solid #fff;">
+                이은 단어 수: {st.session_state.chain}
+            </div>
+            <div style="background: #ffffff; border: 2px solid #8A2BE2; border-radius: 12px; padding: 12px; box-shadow: inset 0 0 10px rgba(138,43,226,0.1);">
+                <div style="color: #666; font-size: 0.85rem; margin-bottom: 3px;">다음 시작 글자</div>
+                <div style="color: #FF0055; font-size: 1.5rem; font-weight: 900; letter-spacing: 2px;">{starts_display}</div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # [D] 실시간 이중 타이머 바 (4번 섹션 변수 연동)
+    t_color = "#FF0055" if actual_turn_ratio < 0.3 else "#f1e05a"
+    
+    st.markdown(f"""
+        <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px; border: 1px solid #444; margin-bottom: 10px;">
+            <div style="margin-bottom:8px;">
+                <p style="margin:0; font-size:11px; color:#3a86ff; font-weight:bold;">총 시간 ({bank_rem:.1f}s)</p>
+                <div class="bank-container">
+                    <div style="width:{bank_ratio*100}%; background:#3a86ff; height:100%; transition: width 0.1s linear;"></div>
+                </div>
+            </div>
+            <div>
+                <p style="margin:0; font-size:12px; color:{t_color}; font-weight:bold;">차례 제한시간 ({actual_turn_rem:.1f}s)</p>
+                <div class="timer-container">
+                    <div style="width:{actual_turn_ratio*100}%; background:{t_color}; height:100%; transition: width 0.1s linear;"></div>
+                </div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # [E] 채팅창 출력 (역순 출력 - 최신 메시지가 위로)
+    chat_html = '<div class="chat-wrap">'
+    
+    # [핵심 수정]: history 데이터를 reversed()로 뒤집어서 최신 것이 먼저 나오게 합니다.
+    # 안전하게 .get()을 사용하고, 데이터가 있을 때만 reversed를 적용합니다.
+    history_list = st.session_state.get("history", [])
+    
+    if history_list:
+        # reversed() 함수로 데이터를 역순으로 바꿉니다.
+        for speaker, text in history_list:
+            if speaker == "AI":
+                side = "ai"
+                bub = "bubble-ai"
+            else:
+                side = "user"
+                bub = "bubble-user"
+
+            # 🔥 한방단어는 빨간색 굵게 표시 스타일
+            style = "color: #FF0000; font-weight: bold; border: 2px solid #FF0000; box-shadow: 0 0 10px rgba(255,0,0,0.3);" if "🔥" in text else ""
+            
+            # replace("🔥","")로 원본 데이터의 불꽃 이모지는 지우고 스타일만 적용
+            chat_html += f'<div class="msg-row-{side}"><div class="{bub}" style="{style}">{text.replace("🔥","")}</div></div>'
+    
+    chat_html += '</div>'
+    st.markdown(chat_html, unsafe_allow_html=True)
+
+    # [F] 단어 입력 폼 및 AI 대응 로직 (🔥 반드시 여기 안에 넣어라)
+    with st.form(key="game_input", clear_on_submit=True):
+        user_input = st.text_input("단어 입력", label_visibility="collapsed", placeholder="단어를 입력해주세요...")
+        submit = st.form_submit_button("전송")
+
+        if submit and user_input:
+            word = user_input.strip()
+
+            # ✅ 단어 유효성 검사
+            if word in st.session_state.words and word not in st.session_state.used and word[0] in starts:
+                
+                # --- 1. 유저 처리 ---
+                st.session_state.used.add(word)
+                st.session_state.history.append(("User", word))
+                st.session_state.chain += 1
+                st.session_state.last_word = word
+
+                # 효과음
+                try:
+                    with open("input.mp3", "rb") as f:
+                        st.audio(f.read(), format="audio/mp3", autoplay=True)
+                except:
+                    pass
+
+                # --- 2. AI 후보 찾기 ---
+                candidates = []
+                for ch in get_start_chars(word[-1]):
+                    if ch in st.session_state.index:
+                        valid = [w for w in st.session_state.index[ch] if w not in st.session_state.used]
+                        candidates.extend(valid)
+
+                # --- 3. 난이도 ---
+                diff = st.session_state.get("difficulty", "보통")
+
+                give_up_chance = 0.15 if diff == "쉬움" else 0.05 if diff == "보통" else 0
+                if candidates and random.random() < give_up_chance:
+                    candidates = []
+
+                # --- 4. 결과 처리 ---
+                if not candidates:
+                    st.session_state.history[-1] = ("User", f"🔥{word}")
+                    st.session_state.user_score += 1
+
+                    if st.session_state.current_round >= st.session_state.total_rounds:
+                        st.session_state.round_over = True
+                        st.session_state.winner = "User"
+                    else:
+                        st.toast("🎊 AI 항복! 다음 라운드로 이동합니다.")
+                        time.sleep(1.5)
+
+                        new_f = random.choice(list(st.session_state.words))
+                        now_res = time.time()
+                        st.session_state.update({
+                            "current_round": st.session_state.current_round + 1,
+                            "game_start_time": now_res,
+                            "turn_start": now_res,
+                            "used": {new_f},
+                            "last_word": new_f,
+                            "history": [("AI", new_f)],
+                            "chain": 1,
+                            "stage": "stage1",
+                        })
+                    st.rerun()
+
+                else:
+                    delay = random.uniform(0.5, max(0.6, dynamic_limit * 0.4))
+                    with st.spinner("AI가 생각 중..."):
+                        time.sleep(delay)
+
+                    if diff == "쉬움":
+                        ai_word = random.choice(candidates)
+                    elif diff == "보통":
+                        candidates.sort(key=len)
+                        idx_m = len(candidates) // 2
+                        ai_word = random.choice(candidates[idx_m:] if idx_m > 0 else candidates)
+                    else:
+                        ai_word = max(candidates, key=len)
+
+                    # 한방 체크
+                    is_ai_killer = True
+                    for next_ch in get_start_chars(ai_word[-1]):
+                        if next_ch in st.session_state.index:
+                            if any(w not in st.session_state.used and w != ai_word for w in st.session_state.index[next_ch]):
+                                is_ai_killer = False
+                                break
+
+                    final_msg = f"🔥{ai_word}" if is_ai_killer else ai_word
+
+                    st.session_state.used.add(ai_word)
+                    st.session_state.history.append(("AI", final_msg))
+                    st.session_state.last_word = ai_word
+                    st.session_state.chain += 1
+                    st.session_state.turn_start = time.time()
+                    st.rerun()
+
+            else:
+                st.toast("❌ 잘못되거나 이미 사용된 단어입니다!")
+# ────────────────────────────────────────────────
+# 6. 라운드 종료 화면
+# ────────────────────────────────────────────────
+else:
+    # 패배 변수
+    b_rem = st.session_state.get("bank_rem", 0)
+    t_rem = st.session_state.get("actual_turn_rem", 0)
+
+    # 패배 원인
+    reason = "시간 초과!" if (b_rem <= 0 or t_rem <= 0) else "AI의 역습!"
+    st.error(f"💀 패배.. {reason}")
+
+    # 스코어
+    c1, c2 = st.columns(2)
+    c1.metric("최종 나 (User)", st.session_state.user_score)
+    c2.metric("최종 상대 (AI)", st.session_state.ai_score)
+
+# 다음 라운드 or 종료
+# 다음 라운드 or 종료
+if st.session_state.get("round_over", False):  # 🔥 round_over 체크 추가
+    if st.session_state.current_round < st.session_state.total_rounds:
+        if st.button(f"🕐 다음 라운드({st.session_state.current_round + 1}) 시작하기"):
+            new_first = random.choice(list(st.session_state.words))
+            now_reset = time.time()
+
+            st.session_state.update({
+                "round_over": False,
+                "winner": None,
+                "game_start_time": now_reset,
+                "turn_start": now_reset,
+                "used": {new_first},
+                "last_word": new_first,
+                "history": [("AI", new_first)],
+                "chain": 1,
+                "current_round": st.session_state.current_round + 1,
+                "stage": "stage1"
+            })
             st.rerun()
-        else:
-            st.error("틀림")
+    else:
+        # ✅ 게임 완전 종료
+        st.warning("🎮 모든 라운드가 종료되었습니다!")
+
+        if st.button("🔄 게임 초기화 및 처음부터 다시 시작", key="final_restart"):
+            for k in list(st.session_state.keys()):
+                del st.session_state[k]
+            st.rerun()
 
 # ────────────────────────────────────────────────
-# 자동 새로고침
+# 7. 실시간 자동 새로고침
 # ────────────────────────────────────────────────
-time.sleep(0.2)
-st.rerun()
+if not st.session_state.get("round_over", False):
+    time.sleep(0.1)
+
+    components.html("""
+<script>
+const fixUI = () => {
+    const win = window.parent.document;
+    const chat = win.querySelector('.chat-wrap');
+    const input = win.querySelector('input');
+
+    if (chat) chat.scrollTop = chat.scrollHeight;
+
+    if (input && win.activeElement.tagName !== 'INPUT' && win.activeElement.tagName !== 'TEXTAREA') {
+        input.focus();
+    }
+};
+
+const observer = new MutationObserver(fixUI);
+observer.observe(window.parent.document.body, {
+    childList: true,
+    subtree: true
+});
+
+setInterval(fixUI, 400);
+fixUI();
+</script>
+""", height=0)
+
+    st.rerun()
