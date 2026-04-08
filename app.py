@@ -853,13 +853,15 @@ if not st.session_state.get("round_over", False):
                 st.session_state.ticking = False
             st.rerun()
     else:
-        user_input = st.text_input(
-            "단어 입력",
-            key="word_input_main",
-            label_visibility="collapsed",
-            placeholder="단어를 입력해주세요...",
-        )
-        submit = st.button("전송", key="send_btn_main")
+        input_mount = st.empty()
+        with input_mount.form(key="game_input", clear_on_submit=True):
+            user_input = st.text_input(
+                "단어 입력",
+                key="word_input_main",
+                label_visibility="collapsed",
+                placeholder="단어를 입력해주세요...",
+            )
+            submit = st.form_submit_button("전송")
 
         if submit and user_input:
             # 전송 버튼 즉시: 현재 재생 중인 소리 전체 중단
@@ -922,7 +924,6 @@ if not st.session_state.get("round_over", False):
                             }
                         )
                         audio_stop_all()
-                    st.session_state.word_input_main = ""
                     st.rerun()
                 else:
                     delay = random.uniform(0.5, max(0.6, dynamic_limit * 0.4))
@@ -930,7 +931,6 @@ if not st.session_state.get("round_over", False):
                     st.session_state.pending_ai_phase = 0
                     st.session_state.pending_ai_due_at = time.time() + delay
                     st.session_state.pending_ai_candidates = candidates
-                    st.session_state.word_input_main = ""
                     st.rerun()
             else:
                 audio_delayed_event("fail", new_bgm, delay_ms=AUDIO_EVENT_DELAY_MS)
