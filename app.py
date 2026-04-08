@@ -853,87 +853,88 @@ if not st.session_state.get("round_over", False):
                 st.session_state.ticking = False
             st.rerun()
     else:
-        with st.form(key="game_input", clear_on_submit=True):
-            user_input = st.text_input(
-                "단어 입력",
-                key="word_input_main",
-                label_visibility="collapsed",
-                placeholder="단어를 입력해주세요...",
-            )
-            submit = st.form_submit_button("전송")
+        user_input = st.text_input(
+            "단어 입력",
+            key="word_input_main",
+            label_visibility="collapsed",
+            placeholder="단어를 입력해주세요...",
+        )
+        submit = st.button("전송", key="send_btn_main")
 
-            if submit and user_input:
-                # 전송 버튼 즉시: 현재 재생 중인 소리 전체 중단
-                audio_stop_all()
-                word = user_input.strip()
+        if submit and user_input:
+            # 전송 버튼 즉시: 현재 재생 중인 소리 전체 중단
+            audio_stop_all()
+            word = user_input.strip()
 
-                if word in st.session_state.words and word not in st.session_state.used and word[0] in starts:
-                    st.session_state.used.add(word)
-                    st.session_state.history.append(("User", word))
-                    st.session_state.chain += 1
-                    st.session_state.last_word = word
-                    st.session_state.ticking = False
+            if word in st.session_state.words and word not in st.session_state.used and word[0] in starts:
+                st.session_state.used.add(word)
+                st.session_state.history.append(("User", word))
+                st.session_state.chain += 1
+                st.session_state.last_word = word
+                st.session_state.ticking = False
 
-                    user_bgm = get_stage(st.session_state.chain)[2]
-                    audio_delayed_event("input", user_bgm, delay_ms=AUDIO_EVENT_DELAY_MS)
+                user_bgm = get_stage(st.session_state.chain)[2]
+                audio_delayed_event("input", user_bgm, delay_ms=AUDIO_EVENT_DELAY_MS)
 
+                candidates = []
+                for ch in get_start_chars(word[-1]):
+                    if ch in st.session_state.index:
+                        candidates.extend(
+                            w for w in st.session_state.index[ch] if w not in st.session_state.used
+                        )
+
+                diff = st.session_state.get("difficulty", "보통")
+                give_up = 0.15 if diff == "쉬움" else 0.05 if diff == "보통" else 0
+                if candidates and random.random() < give_up:
                     candidates = []
-                    for ch in get_start_chars(word[-1]):
-                        if ch in st.session_state.index:
-                            candidates.extend(
-                                w for w in st.session_state.index[ch] if w not in st.session_state.used
-                            )
 
-                    diff = st.session_state.get("difficulty", "보통")
-                    give_up = 0.15 if diff == "쉬움" else 0.05 if diff == "보통" else 0
-                    if candidates and random.random() < give_up:
-                        candidates = []
+                if not candidates:
+                    st.session_state.history[-1] = ("User", f"🔥{word}")
+                    st.session_state.user_score += 1
+                    audio_delayed_event("killer", "", delay_ms=AUDIO_EVENT_DELAY_MS)
+                    audio_win()
 
-                    if not candidates:
-                        st.session_state.history[-1] = ("User", f"🔥{word}")
-                        st.session_state.user_score += 1
-                        audio_delayed_event("killer", "", delay_ms=AUDIO_EVENT_DELAY_MS)
-                        audio_win()
-
-                        if st.session_state.current_round >= st.session_state.total_rounds:
-                            st.session_state.round_over = True
-                            st.session_state.winner = "User"
-                        else:
-                            st.toast("🎊 AI 항복! 다음 라운드로 이동합니다.")
-                            time.sleep(1.5)
-                            new_f = random.choice(list(st.session_state.words))
-                            now_res = time.time()
-                            st.session_state.update(
-                                {
-                                    "current_round": st.session_state.current_round + 1,
-                                    "game_start_time": now_res,
-                                    "turn_start": now_res,
-                                    "used": {new_f},
-                                    "last_word": new_f,
-                                    "history": [("AI", new_f)],
-                                    "chain": 1,
-                                    "current_stage": "stage1",
-                                    "bgm_started": False,
-                                    "round_audio_started_for": 0,
-                                    "pending_ai": False,
-                                    "pending_ai_phase": 0,
-                                    "pending_ai_due_at": 0.0,
-                                    "pending_ai_candidates": [],
-                                    "ticking": False,
-                                }
-                            )
-                            audio_stop_all()
-                        st.rerun()
+                    if st.session_state.current_round >= st.session_state.total_rounds:
+                        st.session_state.round_over = True
+                        st.session_state.winner = "User"
                     else:
-                        delay = random.uniform(0.5, max(0.6, dynamic_limit * 0.4))
-                        st.session_state.pending_ai = True
-                        st.session_state.pending_ai_phase = 0
-                        st.session_state.pending_ai_due_at = time.time() + delay
-                        st.session_state.pending_ai_candidates = candidates
-                        st.rerun()
+                        st.toast("🎊 AI 항복! 다음 라운드로 이동합니다.")
+                        time.sleep(1.5)
+                        new_f = random.choice(list(st.session_state.words))
+                        now_res = time.time()
+                        st.session_state.update(
+                            {
+                                "current_round": st.session_state.current_round + 1,
+                                "game_start_time": now_res,
+                                "turn_start": now_res,
+                                "used": {new_f},
+                                "last_word": new_f,
+                                "history": [("AI", new_f)],
+                                "chain": 1,
+                                "current_stage": "stage1",
+                                "bgm_started": False,
+                                "round_audio_started_for": 0,
+                                "pending_ai": False,
+                                "pending_ai_phase": 0,
+                                "pending_ai_due_at": 0.0,
+                                "pending_ai_candidates": [],
+                                "ticking": False,
+                            }
+                        )
+                        audio_stop_all()
+                    st.session_state.word_input_main = ""
+                    st.rerun()
                 else:
-                    audio_delayed_event("fail", new_bgm, delay_ms=AUDIO_EVENT_DELAY_MS)
-                    st.toast("❌ 잘못되거나 이미 사용된 단어입니다!")
+                    delay = random.uniform(0.5, max(0.6, dynamic_limit * 0.4))
+                    st.session_state.pending_ai = True
+                    st.session_state.pending_ai_phase = 0
+                    st.session_state.pending_ai_due_at = time.time() + delay
+                    st.session_state.pending_ai_candidates = candidates
+                    st.session_state.word_input_main = ""
+                    st.rerun()
+            else:
+                audio_delayed_event("fail", new_bgm, delay_ms=AUDIO_EVENT_DELAY_MS)
+                st.toast("❌ 잘못되거나 이미 사용된 단어입니다!")
 else:
     b_rem = st.session_state.get("bank_rem", 0)
     t_rem = st.session_state.get("actual_turn_rem", 0)
@@ -991,7 +992,7 @@ if not st.session_state.get("round_over", False):
     const d = p.document;
     const fixUI = () => {
         const chat = d.querySelector('.chat-wrap');
-        const input = d.querySelector('input[aria-label="단어 입력"], input[placeholder="단어를 입력해주세요..."]');
+        const input = d.querySelector('input[aria-label="단어 입력"]');
         if (chat) chat.scrollTop = chat.scrollHeight;
         if (input && d.activeElement.tagName !== 'INPUT' && d.activeElement.tagName !== 'TEXTAREA') input.focus();
     };
