@@ -1,198 +1,358 @@
 import random
 import time
 import re
+import base64
 import streamlit as st
 import streamlit.components.v1 as components
 from collections import defaultdict
 
 # ────────────────────────────────────────────────
-# 1. 데이터 로드 및 두음법칙
+# 0. HTML 오디오 유틸리티
+# ────────────────────────────────────────────────
+def load_b64(filepath: str) -> str | None:
+    """파일을 base64 문자열로 변환, 실패 시 None 반환"""
+    try:
+        with open(filepath, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    except Exception:
+        return None
+
+
+def play_sfx(filepath: str, volume: float = 0.8):
+    """
+    효과음 1회 재생 (UI 위젯 없음).
+    새 Audio 객체를 매번 생성하므로 BGM과 독립적으로 재생됨.
+    """
+    b64 = load_b64(filepath)
+    if not b64:
+        return
+    uid = filepath.replace(".", "_").replace("/", "_")
+    components.html(f"""
+<script>
+(function(){{
+  var a = new Audio('data:audio/mp3;base64,{b64}');
+  a.volume = {volume};
+  a.play().catch(function(){{}});
+}})();
+</script>
+""", height=0)
+
+
+def play_stage_transition(sfx_file: str, bgm_file: str,
+                           sfx_volume: float = 1.0,
+                           bgm_volume: float = 0.45,
+                           sfx_duration: float = 3.0):
+    """
+    스테이지 전환 시:
+      1) 기존 BGM 즉시 정지
+      2) 전환 효과음 재생 (sfx_duration 초)
+      3) 효과음이 끝난 뒤 새 BGM 루프 재생
+    모두 단일 components.html 호출로 처리.
+    """
+    sfx_b64 = load_b64(sfx_file)
+    bgm_b64 = load_b64(bgm_file)
+
+    # 파일 중 하나라도 없으면 있는 것만 처리
+    sfx_src = f"data:audio/mp3;base64,{sfx_b64}" if sfx_b64 else ""
+    bgm_src = f"data:audio/mp3;base64,{bgm_b64}" if bgm_b64 else ""
+
+    components.html(f"""
+<script>
+(function(){{
+  // ── 1. 기존 BGM 정지 ──
+  if (window._bgmAudio) {{
+    window._bgmAudio.pause();
+    window._bgmAudio.currentTime = 0;
+    window._bgmAudio = null;
+  }}
+
+  // ── 2. 전환 효과음 재생 ──
+  var sfxSrc = "{sfx_src}";
+  var bgmSrc = "{bgm_src}";
+  var delay  = {sfx_duration} * 1000;
+
+  if (sfxSrc) {{
+    var sfx = new Audio(sfxSrc);
+    sfx.volume = {sfx_volume};
+    sfx.play().catch(function(){{}});
+  }}
+
+  // ── 3. 효과음 종료 후 BGM 루프 시작 ──
+  if (bgmSrc) {{
+    setTimeout(function() {{
+      var bgm = new Audio(bgmSrc);
+      bgm.loop   = true;
+      bgm.volume = {bgm_volume};
+      bgm.play().catch(function(){{}});
+      window._bgmAudio = bgm;
+    }}, delay);
+  }}
+}})();
+</script>
+""", height=0)
+
+
+def start_bgm_only(bgm_file: str, volume: float = 0.45):
+    """전환 효과음 없이 BGM만 교체 (게임 최초 시작용)"""
+    b64 = load_b64(bgm_file)
+    if not b64:
+        return
+    components.html(f"""
+<script>
+(function(){{
+  if (window._bgmAudio) {{
+    window._bgmAudio.pause();
+    window._bgmAudio.currentTime = 0;
+  }}
+  var bgm = new Audio('data:audio/mp3;base64,{b64}');
+  bgm.loop   = true;
+  bgm.volume = {volume};
+  bgm.play().catch(function(){{}});
+  window._bgmAudio = bgm;
+}})();
+</script>
+""", height=0)
+
+
+# ────────────────────────────────────────────────
+# 1. 스테이지 정의
+# ────────────────────────────────────────────────
+# (최소 체인, 턴제한, 스테이지명, bgm파일, 전환sfx파일)
+STAGES = [
+    (35, 2.0,  "stage5", "bgm5.mp3", "stage5_start.mp3"),
+    (28, 5.0,  "stage4", "bgm4.mp3", "stage4_start.mp3"),
+    (18, 8.0,  "stage3", "bgm3.mp3", "stage3_start.mp3"),
+    (8,  12.0, "stage2", "bgm2.mp3", "stage2_start.mp3"),
+    (0,  15.0, "stage1", "bgm1.mp3", "stage1_start.mp3"),
+]
+
+def get_stage(chain: int) -> tuple:
+    """체인 수에 맞는 (turn_limit, stage_name, bgm, sfx) 반환"""
+    for min_chain, limit, name, bgm, sfx in STAGES:
+        if chain >= min_chain:
+            return limit, name, bgm, sfx
+    return 15.0, "stage1", "bgm1.mp3", "stage1_start.mp3"
+
+
+# ────────────────────────────────────────────────
+# 2. 데이터 로드 및 두음법칙
 # ────────────────────────────────────────────────
 @st.cache_data(show_spinner=False)
 def load_word_data():
     try:
-        # 실제 words.js가 없다면 기본 리스트 반환
         with open("words.js", "r", encoding="utf-8") as f:
             content = f.read()
         extracted = re.findall(r'["\']([가-힣]{2,4})["\']', content)
-        if extracted: return frozenset(extracted)
-    except: pass
-    return frozenset(["가구", "가방", "기차", "나비", "나무", "우주", "주스", "스낵", "노을", "음악"])
+        if extracted:
+            return frozenset(extracted)
+    except FileNotFoundError:
+        pass
+    return frozenset(["가구", "가방", "가수", "기차", "나비", "나무",
+                      "우주", "주스", "스낵", "노을", "음악"])
 
 DUEUM = {
-    '녀': '여', '뇨': '요', '뉴': '유', '니': '이', '랴': '야', '려': '여', '례': '예', '료': '요',
-    '류': '유', '리': '이', '락': '낙', '래': '내', '랭': '냉', '략': '약', '량': '양', '령': '영',
-    '로': '노', '뢰': '뇌', '룡': '용', '루': '누', '륙': '육', '륜': '윤', '률': '율', '릉': '능',
-    '린': '인', '림': '임', '립': '입', '라': '나', '랄': '날', '람': '남', '랍': '납', '랑': '낭',
-    '르': '느', '념': '염', '렴': '염', '름': '늠',
+    '녀':'여','뇨':'요','뉴':'유','니':'이','랴':'야','려':'여','례':'예','료':'요',
+    '류':'유','리':'이','락':'낙','래':'내','랭':'냉','략':'약','량':'양','령':'영',
+    '로':'노','뢰':'뇌','룡':'용','루':'누','륙':'육','륜':'윤','률':'율','릉':'능',
+    '린':'인','림':'임','립':'입','라':'나','랄':'날','람':'남','랍':'납','랑':'낭',
+    '르':'느','념':'염','렴':'염','름':'늠',
 }
 
 def get_start_chars(last_char):
     chars = {last_char}
-    if last_char in DUEUM: chars.add(DUEUM[last_char])
+    if last_char in DUEUM:
+        chars.add(DUEUM[last_char])
     return list(chars)
 
-# ────────────────────────────────────────────────
-# 2. 오디오 재생 시스템 (JS Bridge)
-# ────────────────────────────────────────────────
-def play_sfx(file_name):
-    # 효과음 재생 (중복 실행 가능)
-    components.html(f"""
-        <script>
-            var audio = new Audio('app/static/{file_name}');
-            audio.play();
-        </script>
-    """, height=0)
-
-def set_bgm(file_name):
-    # 배경음 교체 (부모 창의 오디오 객체 제어)
-    components.html(f"""
-        <script>
-            var bgm = window.parent.document.getElementById('game-bgm');
-            if (bgm) {{
-                var newSrc = 'app/static/{file_name}';
-                if (!bgm.src.includes(newSrc)) {{
-                    bgm.src = newSrc;
-                    bgm.play();
-                }}
-            }}
-        </script>
-    """, height=0)
 
 # ────────────────────────────────────────────────
-# 3. 페이지 설정 및 디자인
+# 3. 페이지 설정 및 CSS
 # ────────────────────────────────────────────────
-st.set_page_config(page_title="Speed 끝말잇기", layout="centered")
+st.set_page_config(page_title="끝말잇기", layout="centered")
 
 st.markdown("""
 <style>
     .grad-title {
         background: linear-gradient(90deg, #FF0000, #8A2BE2);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        font-size: 3rem; font-weight: 800; text-align: center;
+        font-size: 3rem; font-weight: 800; text-align: center; margin-bottom: 5px;
     }
-    .chat-wrap { 
-        background: #f8f9fa; border-radius: 15px; padding: 20px; 
-        height: 300px; overflow-y: auto; border: 1px solid #e9ecef; 
-        display: flex; flex-direction: column-reverse; /* 최신 메시지 아래로 */
+    .chat-wrap {
+        background: #f8f9fa; border-radius: 15px; padding: 20px;
+        height: 300px; overflow-y: auto; border: 1px solid #e9ecef;
+        margin-bottom: 10px; display: flex; flex-direction: column;
     }
-    .bubble-ai { background: white; border: 1px solid #ddd; border-radius: 15px 15px 15px 2px; padding: 8px 12px; margin: 5px 0; align-self: flex-start; }
-    .bubble-user { background: linear-gradient(135deg, #FF0055, #7000FF); color: white; border-radius: 15px 15px 2px 15px; padding: 8px 12px; margin: 5px 0; align-self: flex-end; }
-    .timer-bar { height: 10px; border-radius: 5px; transition: width 0.1s linear; }
+    .msg-row-ai   { display:flex; justify-content:flex-start; margin-bottom:12px; }
+    .msg-row-user { display:flex; justify-content:flex-end;   margin-bottom:12px; }
+    .bubble-ai   { background:#ffffff; color:black; border:1px solid #dee2e6;
+                   border-radius:15px 15px 15px 2px; padding:8px 12px; }
+    .bubble-user { background:linear-gradient(135deg,#FF0055,#7000FF); color:white;
+                   border-radius:15px 15px 2px 15px; padding:8px 12px; }
+    .timer-container { width:100%; background-color:#333; border-radius:10px;
+                       height:18px; margin-bottom:4px; overflow:hidden; }
+    .bank-container  { width:100%; background-color:#222; border-radius:5px;
+                       height:8px; overflow:hidden; }
+    div.stButton > button {
+        background: linear-gradient(135deg,#FF0000,#8A2BE2) !important;
+        color: white !important; width: 100%;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# 배경음 유지를 위한 Hidden Audio 태그 (최초 1회 실행)
-components.html("""<audio id="game-bgm" loop><source src="" type="audio/mp3"></audio>""", height=0)
 
 # ────────────────────────────────────────────────
-# 4. 게임 로직
+# 4. 게임 입장 전 화면
 # ────────────────────────────────────────────────
 if "initialized" not in st.session_state:
     st.markdown('<div class="grad-title">끝말잇기</div>', unsafe_allow_html=True)
+
     col1, col2, col3 = st.columns(3)
-    t_rounds = col1.number_input("라운드", 1, 10, 3)
-    t_limit = col2.selectbox("제한시간", [180, 120, 90, 60], index=1)
-    diff = col3.selectbox("난이도", ["쉬움", "보통", "어려움"], index=1)
-    
-    if st.button("게임 시작"):
-        words_data = load_word_data()
-        idx = defaultdict(list)
-        for w in words_data: idx[w[0]].append(w)
-        first = random.choice(list(words_data))
-        
+    with col1:
+        total_rounds = st.number_input("총 라운드 수", 1, 10, 3)
+    with col2:
+        time_choice = st.selectbox("전체 제한 시간 (초)", [180, 120, 90, 60], index=1)
+    with col3:
+        difficulty = st.selectbox("AI 난이도", ["쉬움", "보통", "어려움"], index=1)
+
+    if st.button("게임 입장하기"):
+        words_data  = load_word_data()
+        idx         = defaultdict(list)
+        valid_words = []
+        for w in words_data:
+            if w and len(w) >= 2:
+                idx[w[0]].append(w)
+                valid_words.append(w)
+
+        if not valid_words:
+            valid_words = ["기차", "나무", "나비", "우주", "주스"]
+            for w in valid_words:
+                idx[w[0]].append(w)
+
+        first = random.choice(valid_words)
+        now   = time.time()
+
         st.session_state.update({
-            "initialized": True, "difficulty": diff, "words": words_data, "index": dict(idx),
-            "user_score": 0, "ai_score": 0, "current_round": 1, "total_rounds": t_rounds,
-            "game_start_time": time.time(), "total_limit": float(t_limit),
-            "turn_start": time.time(), "used": {first}, "last_word": first,
-            "history": [("AI", first)], "round_over": False, "chain": 1, "stage": "stage1"
+            "initialized":    True,
+            "difficulty":     difficulty,
+            "words":          frozenset(valid_words),
+            "index":          dict(idx),
+            "user_score":     0,
+            "ai_score":       0,
+            "current_round":  1,
+            "total_rounds":   total_rounds,
+            "game_start_time": now,
+            "total_limit":    float(time_choice),
+            "turn_start":     now,
+            "used":           {first},
+            "last_word":      first,
+            "history":        [("AI", first)],
+            "round_over":     False,
+            "chain":          1,
+            "winner":         None,
+            "current_stage":  "stage1",   # 현재 스테이지 추적
+            "bgm_started":    False,       # 최초 BGM 시작 여부
         })
         st.rerun()
     st.stop()
 
-# 시간 계산
+
+# ────────────────────────────────────────────────
+# 5. 실시간 타이머 계산
+# ────────────────────────────────────────────────
 now = time.time()
-bank_rem = max(0.0, st.session_state.total_limit - (now - st.session_state.game_start_time))
-dynamic_limits = { "stage1": 15.0, "stage2": 11.0, "stage3": 8.0, "stage4": 5.0, "stage5": 2.0 }
 
-# 스테이지 결정
-if st.session_state.chain >= 28: cur_st = "stage5"
-elif st.session_state.chain >= 20: cur_st = "stage4"
-elif st.session_state.chain >= 8: cur_st = "stage3"
-elif st.session_state.chain >= 5: cur_st = "stage2"
-else: cur_st = "stage1"
+bank_rem    = max(0.0, st.session_state.total_limit
+                       - (now - st.session_state.game_start_time))
+bank_ratio  = bank_rem / st.session_state.total_limit
 
-turn_limit = dynamic_limits[cur_st]
-turn_elapsed = now - st.session_state.turn_start
-turn_rem = max(0.0, turn_limit - turn_elapsed)
+dynamic_limit, new_stage, new_bgm, new_sfx = get_stage(st.session_state.chain)
+turn_elapsed      = now - st.session_state.turn_start
+actual_turn_rem   = max(0.0, dynamic_limit - turn_elapsed)
+actual_turn_ratio = actual_turn_rem / dynamic_limit
 
-# BGM 변경 체크
-if st.session_state.stage != cur_st:
-    st.session_state.stage = cur_st
-    set_bgm(f"bgm{cur_st[-1]}.mp3")
+# ── 스테이지 변경 감지 ──────────────────────────
+prev_stage = st.session_state.get("current_stage", "stage1")
 
-# 패배 판정
-if (bank_rem <= 0 or turn_rem <= 0) and not st.session_state.round_over:
-    st.session_state.round_over = True
-    st.session_state.ai_score += 1
-    st.rerun()
+if not st.session_state.get("bgm_started", False):
+    # 게임 최초 시작: 전환음 없이 BGM만
+    start_bgm_only(new_bgm)
+    st.session_state.bgm_started   = True
+    st.session_state.current_stage = new_stage
+
+elif prev_stage != new_stage:
+    # 스테이지 업: 전환 효과음(3초) → 새 BGM
+    play_stage_transition(
+        sfx_file     = new_sfx,
+        bgm_file     = new_bgm,
+        sfx_volume   = 1.0,
+        bgm_volume   = 0.45,
+        sfx_duration = 3.0,
+    )
+    st.session_state.current_stage = new_stage
+
+# 세션에 현재 잔여시간 저장 (종료 화면에서 참조)
+st.session_state.bank_rem        = bank_rem
+st.session_state.actual_turn_rem = actual_turn_rem
+
 
 # ────────────────────────────────────────────────
-# 5. UI 렌더링
+# 6. 게임 중 UI
 # ────────────────────────────────────────────────
-st.write(f"**Round {st.session_state.current_round} / {st.session_state.total_rounds}**")
+if not st.session_state.get("round_over", False):
 
-# 타이머 바
-st.caption(f"전체 시간: {bank_rem:.1f}s")
-st.progress(bank_rem / st.session_state.total_limit)
-st.caption(f"차례 시간: {turn_rem:.1f}s")
-st.progress(turn_rem / turn_limit)
+    # [A] 시간 초과 패배 판정
+    if bank_rem <= 0 or actual_turn_rem <= 0:
+        st.session_state.round_over = True
+        st.session_state.ai_score  += 1
+        st.session_state.end_reason = "timeout"
+        st.session_state.winner     = "AI"
+        st.rerun()
 
-# 채팅 출력
-chat_html = '<div class="chat-wrap">'
-for speaker, text in reversed(st.session_state.history):
-    cls = "bubble-ai" if speaker == "AI" else "bubble-user"
-    chat_html += f'<div class="{cls}">{text}</div>'
-chat_html += '</div>'
-st.markdown(chat_html, unsafe_allow_html=True)
+    # [B] 스코어 보드
+    st.write(f"**라운드 {st.session_state.current_round} / {st.session_state.total_rounds}**")
+    c1, c2 = st.columns(2)
+    c1.metric("나 (User)", st.session_state.user_score)
+    c2.metric("상대 (AI)",  st.session_state.ai_score)
 
-# 입력창
-starts = get_start_chars(st.session_state.last_word[-1])
-with st.form("input_form", clear_on_submit=True):
-    user_in = st.text_input(f"'{', '.join(starts)}'로 시작하는 단어:")
-    if st.form_submit_button("전송") and user_in:
-        word = user_in.strip()
-        if word in st.session_state.words and word not in st.session_state.used and word[0] in starts:
-            # 유저 성공
-            play_sfx("input.mp3")
-            st.session_state.used.add(word)
-            st.session_state.history.append(("User", word))
-            st.session_state.chain += 1
-            st.session_state.last_word = word
-            
-            # AI 반격
-            candidates = []
-            for ch in get_start_chars(word[-1]):
-                if ch in st.session_state.index:
-                    valid = [w for w in st.session_state.index[ch] if w not in st.session_state.used]
-                    candidates.extend(valid)
-            
-            if not candidates: # AI 패배
-                st.session_state.user_score += 1
-                st.session_state.round_over = True
-            else:
-                ai_word = random.choice(candidates)
-                st.session_state.used.add(ai_word)
-                st.session_state.history.append(("AI", ai_word))
-                st.session_state.last_word = ai_word
-                st.session_state.chain += 1
-                st.session_state.turn_start = time.time()
-            st.rerun()
-        else:
-            st.error("오답입니다!")
+    # [C] 체인 & 다음 글자 표시
+    starts         = get_start_chars(st.session_state.last_word[-1])
+    starts_display = " 또는 ".join(starts)
+    st.markdown(f"""
+        <div style="text-align:center; margin-top:10px; margin-bottom:15px;">
+            <div style="display:inline-block;
+                        background:linear-gradient(135deg,#FF0055,#7000FF);
+                        color:white; padding:4px 15px; border-radius:20px;
+                        font-weight:bold; font-size:1.1rem; margin-bottom:10px;
+                        box-shadow:0 2px 5px rgba(0,0,0,0.2); border:1px solid #fff;">
+                이은 단어 수: {st.session_state.chain} &nbsp;|&nbsp; 스테이지: {new_stage}
+            </div>
+            <div style="background:#ffffff; border:2px solid #8A2BE2;
+                        border-radius:12px; padding:12px;
+                        box-shadow:inset 0 0 10px rgba(138,43,226,0.1);">
+                <div style="color:#666; font-size:0.85rem; margin-bottom:3px;">다음 시작 글자</div>
+                <div style="color:#FF0055; font-size:1.5rem; font-weight:900;
+                            letter-spacing:2px;">{starts_display}</div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
-# 자동 새로고침 (0.1초 단위)
-if not st.session_state.round_over:
-    time.sleep(0.1)
-    st.rerun()
+    # [D] 이중 타이머 바
+    t_color = "#FF0055" if actual_turn_ratio < 0.3 else "#f1e05a"
+    st.markdown(f"""
+        <div style="background:rgba(0,0,0,0.3); padding:10px; border-radius:10px;
+                    border:1px solid #444; margin-bottom:10px;">
+            <div style="margin-bottom:8px;">
+                <p style="margin:0; font-size:11px; color:#3a86ff; font-weight:bold;">
+                    총 시간 ({bank_rem:.1f}s)
+                </p>
+                <div class="bank-container">
+                    <div style="width:{bank_ratio*100:.1f}%; background:#3a86ff;
+                                height:100%; transition:width 0.1s linear;"></div>
+                </div>
+            </div>
+            <div>
+                <p style="margin:0; font-size:12px; color:{t_color}; font-weight:bold;">
+                    차례 제한시간 ({actual_turn_rem:.1f}s)
+                </p>
+                <div class="timer-container">
+                    <div style="width:{actual_turn_ratio*100:.1f}%; background:
