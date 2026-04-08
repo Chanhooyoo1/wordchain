@@ -355,4 +355,192 @@ if not st.session_state.get("round_over", False):
                     차례 제한시간 ({actual_turn_rem:.1f}s)
                 </p>
                 <div class="timer-container">
-                    <div style="width:{actual_turn_ratio*100:.1f}%; background:
+                    <div style="width:{actual_turn_ratio*100:.1f}%; background:{t_color};
+                                height:100%; transition:width 0.1s linear;"></div>
+                </div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # [E] 채팅창
+    chat_html    = '<div class="chat-wrap">'
+    history_list = st.session_state.get("history", [])
+    for speaker, text in history_list:
+        side  = "ai"        if speaker == "AI" else "user"
+        bub   = "bubble-ai" if speaker == "AI" else "bubble-user"
+        style = ("color:#FF0000; font-weight:bold; border:2px solid #FF0000;"
+                 "box-shadow:0 0 10px rgba(255,0,0,0.3);") if "🔥" in text else ""
+        chat_html += (f'<div class="msg-row-{side}">'
+                      f'<div class="{bub}" style="{style}">'
+                      f'{text.replace("🔥","")}</div></div>')
+    chat_html += '</div>'
+    st.markdown(chat_html, unsafe_allow_html=True)
+
+    # [F] 입력 폼 + AI 대응
+    with st.form(key="game_input", clear_on_submit=True):
+        user_input = st.text_input("단어 입력", label_visibility="collapsed",
+                                   placeholder="단어를 입력해주세요...")
+        submit = st.form_submit_button("전송")
+
+        if submit and user_input:
+            word = user_input.strip()
+
+            if (word in st.session_state.words
+                    and word not in st.session_state.used
+                    and word[0] in starts):
+
+                # ── 유저 처리 ───────────────────────────
+                st.session_state.used.add(word)
+                st.session_state.history.append(("User", word))
+                st.session_state.chain    += 1
+                st.session_state.last_word = word
+
+                # 전송 효과음
+                play_sfx("input.mp3", volume=0.8)
+
+                # ── AI 후보 수집 ────────────────────────
+                candidates = []
+                for ch in get_start_chars(word[-1]):
+                    if ch in st.session_state.index:
+                        candidates.extend(
+                            w for w in st.session_state.index[ch]
+                            if w not in st.session_state.used
+                        )
+
+                # ── 난이도 보정 ─────────────────────────
+                diff     = st.session_state.get("difficulty", "보통")
+                give_up  = 0.15 if diff == "쉬움" else 0.05 if diff == "보통" else 0
+                if candidates and random.random() < give_up:
+                    candidates = []
+
+                # ── AI 항복 ─────────────────────────────
+                if not candidates:
+                    st.session_state.history[-1] = ("User", f"🔥{word}")
+                    st.session_state.user_score  += 1
+
+                    if st.session_state.current_round >= st.session_state.total_rounds:
+                        st.session_state.round_over = True
+                        st.session_state.winner     = "User"
+                    else:
+                        st.toast("🎊 AI 항복! 다음 라운드로 이동합니다.")
+                        time.sleep(1.5)
+                        new_f   = random.choice(list(st.session_state.words))
+                        now_res = time.time()
+                        st.session_state.update({
+                            "current_round":  st.session_state.current_round + 1,
+                            "game_start_time": now_res,
+                            "turn_start":     now_res,
+                            "used":           {new_f},
+                            "last_word":      new_f,
+                            "history":        [("AI", new_f)],
+                            "chain":          1,
+                            "current_stage":  "stage1",
+                            "bgm_started":    False,   # BGM 재시작
+                        })
+                    st.rerun()
+
+                # ── AI 응답 ─────────────────────────────
+                else:
+                    delay = random.uniform(0.5, max(0.6, dynamic_limit * 0.4))
+                    with st.spinner("AI가 생각 중..."):
+                        time.sleep(delay)
+
+                    if diff == "쉬움":
+                        ai_word = random.choice(candidates)
+                    elif diff == "보통":
+                        candidates.sort(key=len)
+                        mid     = len(candidates) // 2
+                        ai_word = random.choice(candidates[mid:] if mid > 0 else candidates)
+                    else:
+                        ai_word = max(candidates, key=len)
+
+                    # 한방 체크
+                    is_killer = True
+                    for nch in get_start_chars(ai_word[-1]):
+                        if nch in st.session_state.index:
+                            if any(w not in st.session_state.used and w != ai_word
+                                   for w in st.session_state.index[nch]):
+                                is_killer = False
+                                break
+
+                    final_msg = f"🔥{ai_word}" if is_killer else ai_word
+                    st.session_state.used.add(ai_word)
+                    st.session_state.history.append(("AI", final_msg))
+                    st.session_state.last_word  = ai_word
+                    st.session_state.chain     += 1
+                    st.session_state.turn_start = time.time()
+                    st.rerun()
+
+            else:
+                st.toast("❌ 잘못되거나 이미 사용된 단어입니다!")
+
+
+# ────────────────────────────────────────────────
+# 7. 라운드 종료 화면
+# ────────────────────────────────────────────────
+else:
+    b_rem  = st.session_state.get("bank_rem", 0)
+    t_rem  = st.session_state.get("actual_turn_rem", 0)
+    reason = "시간 초과!" if (b_rem <= 0 or t_rem <= 0) else "AI의 역습!"
+    st.error(f"💀 패배.. {reason}")
+
+    c1, c2 = st.columns(2)
+    c1.metric("최종 나 (User)", st.session_state.user_score)
+    c2.metric("최종 상대 (AI)",  st.session_state.ai_score)
+
+
+# ────────────────────────────────────────────────
+# 8. 다음 라운드 / 완전 종료 버튼
+# ────────────────────────────────────────────────
+if st.session_state.get("round_over", False):
+    if st.session_state.current_round < st.session_state.total_rounds:
+        if st.button(f"🕐 다음 라운드({st.session_state.current_round + 1}) 시작하기"):
+            new_first = random.choice(list(st.session_state.words))
+            now_reset = time.time()
+            st.session_state.update({
+                "round_over":      False,
+                "winner":          None,
+                "game_start_time": now_reset,
+                "turn_start":      now_reset,
+                "used":            {new_first},
+                "last_word":       new_first,
+                "history":         [("AI", new_first)],
+                "chain":           1,
+                "current_round":   st.session_state.current_round + 1,
+                "current_stage":   "stage1",
+                "bgm_started":     False,   # BGM 재시작
+            })
+            st.rerun()
+    else:
+        st.warning("🎮 모든 라운드가 종료되었습니다!")
+        if st.button("🔄 게임 초기화 및 처음부터 다시 시작", key="final_restart"):
+            for k in list(st.session_state.keys()):
+                del st.session_state[k]
+            st.rerun()
+
+
+# ────────────────────────────────────────────────
+# 9. 실시간 자동 새로고침 + UI 보정
+# ────────────────────────────────────────────────
+if not st.session_state.get("round_over", False):
+    time.sleep(0.1)
+    components.html("""
+<script>
+const fixUI = () => {
+    const win   = window.parent.document;
+    const chat  = win.querySelector('.chat-wrap');
+    const input = win.querySelector('input');
+    if (chat) chat.scrollTop = chat.scrollHeight;
+    if (input
+        && win.activeElement.tagName !== 'INPUT'
+        && win.activeElement.tagName !== 'TEXTAREA') {
+        input.focus();
+    }
+};
+const observer = new MutationObserver(fixUI);
+observer.observe(window.parent.document.body, { childList: true, subtree: true });
+setInterval(fixUI, 400);
+fixUI();
+</script>
+""", height=0)
+    st.rerun()
