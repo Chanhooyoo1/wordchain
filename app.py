@@ -227,7 +227,23 @@ def inject_kkutu_audio():
 
 def _js(script: str):
     components.html(
-        f"<script>(function(){{ var am=window.parent.__kkutuAudio; if(!am)return; {script} }})();</script>",
+        f"""
+<script>
+(function(){{
+  var tries = 0;
+  function run(){{
+    var am = window.parent.__kkutuAudio;
+    if (!am) {{
+      tries += 1;
+      if (tries < 30) setTimeout(run, 60);
+      return;
+    }}
+    {script}
+  }}
+  run();
+}})();
+</script>
+""",
         height=0,
     )
 
@@ -387,7 +403,9 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-inject_kkutu_audio()
+# 오디오 모듈은 게임 입장 버튼 이후에만 활성화
+if st.session_state.get("audio_enabled", False):
+    inject_kkutu_audio()
 
 if "initialized" not in st.session_state:
     st.markdown('<div class="grad-title">끝말잇기</div>', unsafe_allow_html=True)
@@ -418,6 +436,7 @@ if "initialized" not in st.session_state:
         now = time.time()
         st.session_state.update(
             {
+                "audio_enabled": True,
                 "initialized": True,
                 "difficulty": difficulty,
                 "words": frozenset(valid_words),
@@ -473,6 +492,11 @@ elif not is_low_time and st.session_state.get("ticking", False):
 
 st.session_state.bank_rem = bank_rem
 st.session_state.actual_turn_rem = actual_turn_rem
+
+# 라운드 종료 상태에서는 틱 사운드가 남지 않도록 강제 정지
+if st.session_state.get("round_over", False):
+    audio_tick_stop()
+    st.session_state.ticking = False
 
 
 if not st.session_state.get("round_over", False):
