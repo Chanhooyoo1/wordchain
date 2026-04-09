@@ -1,3 +1,4 @@
+
 import random
 import time
 import re
@@ -853,46 +854,15 @@ if not st.session_state.get("round_over", False):
                 st.session_state.ticking = False
             st.rerun()
     else:
-        # (중략: 타이머 및 채팅창 렌더링 이
-
-    # 2. 입력 창 영역
-    input_mount = st.empty()
-    with input_mount.form(key="game_input", clear_on_submit=True):
-        user_input = st.text_input(
-            "단어 입력",
-            key="word_input_main",
-            label_visibility="collapsed",
-            placeholder="단어를 입력해주세요...",
-            disabled=is_ai_thinking  # AI가 생각 중일 땐 입력창 비활성화 (선택 사항)
-        )
-        submit = st.form_submit_button("전송")
-
-    # 3. 🔥 이 부분에 코드를 넣으세요: 입력창 바로 아래 텍스트 출력
-    status_area = st.empty() # 메시지가 나타날 공간
-    if is_ai_thinking:
-        status_area.markdown("<p style='color:#7000FF; font-weight:bold; animation: blink 1s infinite;'>🤖 AI가 단어를 고르는 중...</p>", unsafe_allow_html=True)
-        
-        due_at = st.session_state.get("pending_ai_due_at", 0.0)
-        phase = st.session_state.get("pending_ai_phase", 0)
-        
-        if phase == 0:
-            st.session_state.pending_ai_phase = 1
-            st.rerun()
-        elif time.time() < due_at:
-            # 아직 시간이 안 됐으면 계속 대기 (화면 유지용)
-            time.sleep(0.1) 
-            st.rerun()
-        else:
-            # 시간 다 됐으면 AI 단어 결정 로직 실행
-            candidates = list(st.session_state.get("pending_ai_candidates", []))
-            # ... (이후 AI 단어 선택 및 처리 로직은 기존과 동일) ...
-            # [기존 코드의 ai_word 결정 부분 넣어주기]
-            st.session_state.pending_ai = False
-            st.rerun()
-
-    # 4. 사용자 입력 처리
-    if submit and user_input and not is_ai_thinking:
-        # ... (기존의 유저 입력 처리 로직) ...
+        input_mount = st.empty()
+        with input_mount.form(key="game_input", clear_on_submit=True):
+            user_input = st.text_input(
+                "단어 입력",
+                key="word_input_main",
+                label_visibility="collapsed",
+                placeholder="단어를 입력해주세요...",
+            )
+            submit = st.form_submit_button("전송")
 
         if submit and user_input:
             # 전송 버튼 즉시: 현재 재생 중인 소리 전체 중단
