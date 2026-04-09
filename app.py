@@ -853,10 +853,7 @@ if not st.session_state.get("round_over", False):
                 st.session_state.ticking = False
             st.rerun()
     else:
-        # (중략: 타이머 및 채팅창 렌더링 이후)
-
-    # 1. AI가 생각 중인지 여부를 먼저 확인하지만, 렌더링은 아래에서 함
-    is_ai_thinking = st.session_state.get("pending_ai", False)
+        # (중략: 타이머 및 채팅창 렌더링 이
 
     # 2. 입력 창 영역
     input_mount = st.empty()
