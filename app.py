@@ -1,4 +1,3 @@
-
 import random
 import time
 import re
@@ -800,16 +799,15 @@ if not st.session_state.get("round_over", False):
     chat_html += "</div>"
     st.markdown(chat_html, unsafe_allow_html=True)
 
+    ai_thinking_text = ""
     if st.session_state.get("pending_ai", False):
         due_at = st.session_state.get("pending_ai_due_at", 0.0)
         phase = st.session_state.get("pending_ai_phase", 0)
         if phase == 0:
-            # 사용자 메시지가 단독으로 한 프레임은 보이도록 강제
             st.session_state.pending_ai_phase = 1
-            st.info("AI가 생각 중...")
-            st.rerun()
+            ai_thinking_text = "AI가 생각 중..."
         elif time.time() < due_at:
-            st.info("AI가 생각 중...")
+            ai_thinking_text = "AI가 생각 중..."
         else:
             candidates = list(st.session_state.get("pending_ai_candidates", []))
             st.session_state.pending_ai = False
@@ -853,18 +851,21 @@ if not st.session_state.get("round_over", False):
                 st.session_state.turn_start = time.time()
                 st.session_state.ticking = False
             st.rerun()
-    else:
-        input_mount = st.empty()
-        with input_mount.form(key="game_input", clear_on_submit=True):
-            user_input = st.text_input(
-                "단어 입력",
-                key="word_input_main",
-                label_visibility="collapsed",
-                placeholder="단어를 입력해주세요...",
-            )
-            submit = st.form_submit_button("전송")
 
-        if submit and user_input:
+    input_mount = st.empty()
+    with input_mount.form(key="game_input", clear_on_submit=True):
+        user_input = st.text_input(
+            "단어 입력",
+            key="word_input_main",
+            label_visibility="collapsed",
+            placeholder="단어를 입력해주세요...",
+        )
+        submit = st.form_submit_button("전송", disabled=st.session_state.get("pending_ai", False))
+
+    if ai_thinking_text:
+        st.caption(ai_thinking_text)
+
+    if submit and user_input and not st.session_state.get("pending_ai", False):
             # 전송 버튼 즉시: 현재 재생 중인 소리 전체 중단
             audio_stop_all()
             word = user_input.strip()
@@ -936,6 +937,8 @@ if not st.session_state.get("round_over", False):
             else:
                 audio_delayed_event("fail", new_bgm, delay_ms=AUDIO_EVENT_DELAY_MS)
                 st.toast("❌ 잘못되거나 이미 사용된 단어입니다!")
+    elif submit and st.session_state.get("pending_ai", False):
+        st.caption("AI가 답변 중이라 잠시 입력이 잠겨 있어요.")
 else:
     b_rem = st.session_state.get("bank_rem", 0)
     t_rem = st.session_state.get("actual_turn_rem", 0)
